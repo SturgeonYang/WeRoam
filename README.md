@@ -6,11 +6,10 @@
 
 ## 环境和框架
 
-Node.js : v22.18.0 -- npm : 11.5.2
-Next.js : 15.5.4
-React : 19.1.0
-TypeScript : ^5
-Tailwind CSS : ^4
+- Node.js : v22.18.0
+- npm : 11.5.2
+- Next.js : 15.5.4
+- React : 19.1.0
 
 ## ✨ 功能特色
 
