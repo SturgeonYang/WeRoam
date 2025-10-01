@@ -3,6 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --primary-yellow: #fef3c7;
+  --secondary-yellow: #fbbf24;
+  --accent-yellow: #f59e0b;
+  --light-yellow: #fffbeb;
+  --cream: #fefdf9;
 }
 
 @theme inline {
@@ -20,7 +25,32 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(135deg, var(--light-yellow) 0%, var(--cream) 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+.chat-message {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.post-card {
+  transition: all 0.3s ease;
+}
+
+.post-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
