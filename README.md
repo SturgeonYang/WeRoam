@@ -37,7 +37,7 @@ Next.js : 15.5.4
 9. 运行 `git clone` 命令，克隆远程仓库到本地。
     ```
     git clone git@github.com:你的GithubID/WeRoam.git
-
+    ```
 10. 进入本地仓库对应的文件夹，在当前路径右键打开 git bash 或者 cmd
 11. 先输入 `npm install`，部署一下
 12. 输入 `npm run dev`，若显示如图，就成功了，点开里面的网址即可访问![image-20251001222922852](attachments/image-20251001222922852.png)
