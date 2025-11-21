@@ -2,10 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
-  const [activeTab, setActiveTab] = useState('home');
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const isActive = (path: string) => pathname === path;
 
   return (
     <nav className="bg-white/90 backdrop-blur-sm shadow-lg border-b border-yellow-200 sticky top-0 z-50">
@@ -14,8 +18,16 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">W</span>
+              <div className="w-16 h-16 rounded-lg overflow-hidden">
+                <Image
+                  src="/weroam.png"
+                  alt="WeRoam logo"
+                  width={64}
+                  height={64}
+                  sizes="64px"
+                  quality={100}
+                  priority
+                />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-800 bg-clip-text text-transparent">
                 云旅札记
@@ -29,35 +41,48 @@ export default function Navbar() {
             <Link
               href="/"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'home'
+                isActive('/')
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
               }`}
-              onClick={() => setActiveTab('home')}
             >
               首页
             </Link>
             <Link
               href="/community"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'community'
+                isActive('/community')
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
               }`}
-              onClick={() => setActiveTab('community')}
             >
               社区
             </Link>
             <Link
               href="/profile"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'profile'
+                isActive('/profile')
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
               }`}
-              onClick={() => setActiveTab('profile')}
             >
               个人中心
+            </Link>
+          </div>
+
+          {/* Auth Buttons (Desktop) */}
+          <div className="hidden md:flex items-center space-x-4">
+            <Link
+              href="/login"
+              className="text-gray-700 hover:text-yellow-800 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              登录
+            </Link>
+            <Link
+              href="/register"
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors shadow-sm"
+            >
+              注册
             </Link>
           </div>
 
@@ -85,12 +110,11 @@ export default function Navbar() {
               <Link
                 href="/"
                 className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  activeTab === 'home'
+                  isActive('/')
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
                 }`}
                 onClick={() => {
-                  setActiveTab('home');
                   setIsMobileMenuOpen(false);
                 }}
               >
@@ -99,12 +123,11 @@ export default function Navbar() {
               <Link
                 href="/community"
                 className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  activeTab === 'community'
+                  isActive('/community')
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
                 }`}
                 onClick={() => {
-                  setActiveTab('community');
                   setIsMobileMenuOpen(false);
                 }}
               >
@@ -113,17 +136,32 @@ export default function Navbar() {
               <Link
                 href="/profile"
                 className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  activeTab === 'profile'
+                  isActive('/profile')
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-800'
                 }`}
                 onClick={() => {
-                  setActiveTab('profile');
                   setIsMobileMenuOpen(false);
                 }}
               >
                 个人中心
               </Link>
+              <div className="pt-4 pb-2 border-t border-yellow-100 mt-2 flex flex-col space-y-2 px-3">
+                <Link
+                  href="/login"
+                  className="block text-center w-full px-4 py-2 border border-yellow-300 text-yellow-700 rounded-md text-base font-medium hover:bg-yellow-50 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  登录
+                </Link>
+                <Link
+                  href="/register"
+                  className="block text-center w-full px-4 py-2 bg-yellow-500 text-white rounded-md text-base font-medium hover:bg-yellow-600 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  注册
+                </Link>
+              </div>
             </div>
           </div>
         )}

@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "云旅札记 (WeRoam) - AI驱动的智能旅行规划助手",
   description: "通过AI对话获得个性化旅游建议，分享和发现精彩的旅行经验",
+  icons: {
+    icon: '/weroam.png',
+    shortcut: '/weroam.png',
+    apple: '/weroam.png',
+  },
 };
 
 export default function RootLayout({
