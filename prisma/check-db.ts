@@ -19,7 +19,7 @@ async function checkDatabase() {
 
     // 2. 检查数据库类型
     console.log('2️⃣ 检查数据库类型...');
-    const result = await prisma.$queryRaw`SELECT version()` as any[];
+    const result = await prisma.$queryRaw<{ version: string }[]>`SELECT version()`;
     const version = result[0]?.version || 'Unknown';
     
     if (version.toLowerCase().includes('postgresql')) {
@@ -38,14 +38,14 @@ async function checkDatabase() {
       WHERE table_schema = 'public' 
       AND table_type = 'BASE TABLE'
       ORDER BY table_name
-    ` as any[];
+    ` as { table_name: string }[];
 
     if (tables.length === 0) {
       console.log('   ⚠️  警告：未找到任何数据表');
       console.log('   💡 提示：请先运行 "npm run prisma:migrate" 创建数据表\n');
     } else {
       console.log(`   ✅ 找到 ${tables.length} 个数据表:`);
-      tables.forEach((table: any) => {
+      tables.forEach((table) => {
         console.log(`      - ${table.table_name}`);
       });
       console.log();
@@ -73,9 +73,18 @@ async function checkDatabase() {
     console.log('5️⃣ 数据库连接信息:');
     const dbUrl = process.env.DATABASE_URL;
     if (dbUrl) {
-      // 隐藏密码
-      const safeUrl = dbUrl.replace(/(:\/\/[^:]+:)([^@]+)(@)/, '$1***$3');
-      console.log(`   📌 连接字符串: ${safeUrl}\n`);
+      // 隐藏密码（使用 URL 解析更安全）
+      try {
+        const url = new URL(dbUrl);
+        if (url.password) {
+          url.password = '***';
+        }
+        console.log(`   📌 连接字符串: ${url.toString()}\n`);
+      } catch {
+        // 如果 URL 解析失败，使用简单的替换
+        const safeUrl = dbUrl.replace(/(:\/\/[^:]+:)([^@]+)(@)/, '$1***$3');
+        console.log(`   📌 连接字符串: ${safeUrl}\n`);
+      }
     } else {
       console.log('   ⚠️  警告：未找到 DATABASE_URL 环境变量\n');
     }
@@ -108,24 +117,26 @@ async function checkDatabase() {
       console.log();
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ 数据库检查失败！\n');
     
-    if (error.code === 'P1001') {
+    const prismaError = error as { code?: string; message?: string };
+    
+    if (prismaError.code === 'P1001') {
       console.error('💡 错误原因：无法连接到数据库服务器');
       console.error('   请检查：');
       console.error('   1. PostgreSQL 服务是否正在运行');
       console.error('   2. .env 文件中的 DATABASE_URL 是否正确');
       console.error('   3. 数据库用户名和密码是否正确');
       console.error('   4. 数据库 weroam 是否已创建\n');
-    } else if (error.code === 'P1003') {
+    } else if (prismaError.code === 'P1003') {
       console.error('💡 错误原因：数据库不存在');
       console.error('   请先创建数据库：');
       console.error('   psql -U postgres');
       console.error('   CREATE DATABASE weroam;\n');
     } else {
       console.error('💡 详细错误信息：');
-      console.error(`   ${error.message}\n`);
+      console.error(`   ${prismaError.message || String(error)}\n`);
     }
 
     console.error('📚 查看帮助文档：');
