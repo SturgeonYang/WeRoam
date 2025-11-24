@@ -54,6 +54,11 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/weroam?schema=public
 
 **注意**：请确保已安装并启动 PostgreSQL 数据库服务。
 
+**安全提示**：
+- 不要在代码中硬编码数据库密码
+- .env 文件已添加到 .gitignore，不会被提交
+- 生产环境请使用强密码并定期更换
+
 ### 3. 生成 Prisma Client
 
 ```bash

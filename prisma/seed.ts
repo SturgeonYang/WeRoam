@@ -9,20 +9,30 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('开始填充测试数据...');
+  // 安全检查：只在开发环境运行
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ 错误：不能在生产环境运行 seed 脚本！');
+    console.error('   这会删除所有现有数据。');
+    process.exit(1);
+  }
 
-  // 清空现有数据（开发环境）
+  console.log('开始填充测试数据...');
+  console.log('⚠️  警告：这将清空现有数据');
+
+  // 清空现有数据（仅开发环境）
   await prisma.comment.deleteMany();
   await prisma.travelPost.deleteMany();
   await prisma.user.deleteMany();
 
   // 创建测试用户
+  // 注意：密码为占位符，实际应用中应使用 bcrypt.hash() 生成真实的哈希值
+  // 例如：const hashedPassword = await bcrypt.hash('password123', 10);
   const users = await Promise.all([
     prisma.user.create({
       data: {
         email: 'zhangsan@example.com',
         username: 'zhangsan',
-        password: '$2b$10$YourHashedPasswordHere1', // 实际应用中应该使用 bcrypt 加密
+        password: '$2b$10$YourHashedPasswordHere1', // 测试密码占位符（实际应用需替换为真实 bcrypt 哈希）
         nickname: '旅行达人张三',
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhangsan',
         bio: '热爱旅行，已走过30个国家。喜欢用镜头记录世界的美好。',
