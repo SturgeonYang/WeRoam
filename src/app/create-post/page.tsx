@@ -10,6 +10,8 @@ export default function CreatePost() {
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const MAX_IMAGES = 10;
@@ -23,29 +25,43 @@ export default function CreatePost() {
     setUploadError('');
 
     // 检查图片数量限制
-    if (images.length + files.length > MAX_IMAGES) {
-      setUploadError(`最多只能上传 ${MAX_IMAGES} 张图片`);
+    const remainingSlots = MAX_IMAGES - images.length;
+    if (files.length > remainingSlots) {
+      setUploadError(`最多还能上传 ${remainingSlots} 张图片（当前 ${images.length}/${MAX_IMAGES}）`);
       return;
     }
 
     // 验证并转换文件
+    const validFiles: string[] = [];
+    const errors: string[] = [];
+
     Array.from(files).forEach((file) => {
       // 验证文件类型
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setUploadError(`不支持的文件格式：${file.name}。请上传 JPG、PNG 或 GIF 格式`);
+        errors.push(`${file.name}：格式不支持`);
         return;
       }
 
       // 验证文件大小
       if (file.size > MAX_FILE_SIZE) {
-        setUploadError(`文件 ${file.name} 过大。请上传小于 5MB 的图片`);
+        errors.push(`${file.name}：文件过大（>5MB）`);
         return;
       }
 
       // 使用 URL.createObjectURL 替代 base64，更高效
       const objectUrl = URL.createObjectURL(file);
-      setImages((prev) => [...prev, objectUrl]);
+      validFiles.push(objectUrl);
     });
+
+    // 显示错误信息
+    if (errors.length > 0) {
+      setUploadError(`以下文件无法上传：${errors.join('、')}`);
+    }
+
+    // 添加有效文件
+    if (validFiles.length > 0) {
+      setImages((prev) => [...prev, ...validFiles]);
+    }
   };
 
   // 删除图片
@@ -73,6 +89,7 @@ export default function CreatePost() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSuccessMessage('');
 
     // TODO: 实现实际的提交逻辑
     // 这里应该调用 API 将数据保存到数据库
@@ -85,7 +102,7 @@ export default function CreatePost() {
     // 模拟提交延迟
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
-    alert('游记发布成功！');
+    setSuccessMessage('游记发布成功！');
     setIsSubmitting(false);
     
     // 清理并重置表单
@@ -98,6 +115,30 @@ export default function CreatePost() {
     setContent('');
     setImages([]);
     setUploadError('');
+    
+    // 3秒后自动关闭成功消息
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  // 处理取消操作
+  const handleCancel = () => {
+    if (title.trim() || content.trim() || images.length > 0) {
+      setShowCancelDialog(true);
+    }
+  };
+
+  // 确认取消
+  const confirmCancel = () => {
+    images.forEach((url) => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    setTitle('');
+    setContent('');
+    setImages([]);
+    setUploadError('');
+    setShowCancelDialog(false);
   };
 
   return (
@@ -115,6 +156,42 @@ export default function CreatePost() {
           </p>
         </div>
       </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+          <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-3">确认取消</h3>
+            <p className="text-gray-600 mb-6">确定要放弃编辑吗？所有内容将不会保存。</p>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmCancel}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                确认取消
+              </button>
+              <button
+                onClick={() => setShowCancelDialog(false)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                继续编辑
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -318,13 +395,7 @@ export default function CreatePost() {
             
             <button
               type="button"
-              onClick={() => {
-                if (confirm('确定要放弃编辑吗？所有内容将不会保存。')) {
-                  setTitle('');
-                  setContent('');
-                  setImages([]);
-                }
-              }}
+              onClick={handleCancel}
               className="sm:w-auto px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all"
             >
               取消
