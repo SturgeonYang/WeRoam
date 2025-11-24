@@ -43,12 +43,16 @@ export default defineConfig({
 数据库 URL 在 `.env` 文件中配置：
 
 ```env
-# 开发环境使用 SQLite
-DATABASE_URL="file:./dev.db"
+# 使用 PostgreSQL（推荐）
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/weroam?schema=public"
 
-# 生产环境可以使用 PostgreSQL
-# DATABASE_URL="postgresql://user:password@localhost:5432/weroam?schema=public"
+# 参数说明：
+# - postgres:postgres -> 用户名:密码
+# - localhost:5432 -> 主机:端口
+# - weroam -> 数据库名称
 ```
+
+**注意**：请确保已安装并启动 PostgreSQL 数据库服务。
 
 ### 3. 生成 Prisma Client
 
@@ -70,7 +74,24 @@ npx prisma migrate dev --name init
 
 这会根据 schema.prisma 文件创建数据库表结构。
 
-### 5. 使用 Prisma Studio（可选）
+### 5. 填充测试数据
+
+我们提供了丰富的测试数据，包括用户、游记和评论：
+
+```bash
+npm run prisma:seed
+# 或者
+npx prisma db seed
+```
+
+这将创建：
+- 3 个测试用户（张三、李四、王五）
+- 5 篇精心编写的游记（北京故宫、成都美食、西藏拉萨、杭州西湖、上海迪士尼）
+- 多条评论和回复
+
+所有数据都是中文内容，非常适合测试和演示。
+
+### 6. 使用 Prisma Studio（可选）
 
 Prisma Studio 是一个可视化的数据库管理工具：
 

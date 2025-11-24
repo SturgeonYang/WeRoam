@@ -25,6 +25,10 @@
     "dotenv": "^17.2.3",
     "prisma": "^7.0.0",
     "tailwindcss": "^4",
+    "tsx": "^4.7.0",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
