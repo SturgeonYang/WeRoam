@@ -481,6 +481,32 @@ A: 对于 SQLite：`cp prisma/dev.db prisma/dev.db.backup`
 ### Q: Prisma Studio 无法启动？
 A: 检查端口 5555 是否被占用，或使用 `npx prisma studio --port 5556` 指定其他端口。
 
+### Q: 数据库是空的，没有测试数据？
+A: 请按以下步骤检查：
+1. 确认 PostgreSQL 正在使用（运行 `npm run prisma:check`）
+2. 确认已运行迁移（`npm run prisma:migrate`）
+3. 运行 seed 脚本填充数据（`npm run prisma:seed`）
+4. 使用 Prisma Studio 验证数据（`npm run prisma:studio`）
+
+如果仍然为空，可能的原因：
+- .env 文件配置错误
+- 数据库连接失败
+- seed 脚本执行出错（查看错误信息）
+
+### Q: 如何验证使用的是 PostgreSQL 而不是 SQLite？
+A: 运行以下命令：
+```bash
+# 方法 1：使用检查脚本（推荐）
+npm run prisma:check
+
+# 方法 2：查看 schema.prisma
+grep "provider" prisma/schema.prisma
+# 应该看到: provider = "postgresql"
+
+# 方法 3：检查数据库
+psql -U postgres -d weroam -c "SELECT version();"
+```
+
 ## 安全注意事项
 
 1. **永远不要提交 `.env` 文件到 Git**（已添加到 .gitignore）
