@@ -58,7 +58,7 @@ npm run prisma:generate
 npx prisma generate
 ```
 
-这将在 `src/generated/prisma` 目录下生成 Prisma Client 代码。
+这将在 `node_modules/@prisma/client` 目录下生成 Prisma Client 代码。
 
 ### 4. 创建数据库
 
@@ -369,7 +369,7 @@ npx prisma migrate dev --name add_post_tags
 Prisma 提供完整的 TypeScript 类型支持：
 
 ```typescript
-import { User, TravelPost, Comment } from '@/generated/prisma';
+import { User, TravelPost, Comment } from '@prisma/client';
 
 // User 类型包含所有字段
 const user: User = {
@@ -386,7 +386,7 @@ const user: User = {
 };
 
 // 使用 Prisma 的类型工具
-import { Prisma } from '@/generated/prisma';
+import { Prisma } from '@prisma/client';
 
 // 创建类型
 type CreateUserInput = Prisma.UserCreateInput;

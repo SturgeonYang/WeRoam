@@ -3,9 +3,11 @@
  * 
  * 在开发环境中，由于 Next.js 的热重载机制，需要使用全局变量来避免
  * 创建多个 Prisma Client 实例导致的数据库连接池耗尽问题
+ * 
+ * 注意：使用此文件前需要先运行 `npx prisma generate` 生成 Prisma Client
  */
 
-import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 // 声明全局类型以存储 Prisma Client 实例
 const globalForPrisma = global as unknown as { prisma: PrismaClient };

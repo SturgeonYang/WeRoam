@@ -234,7 +234,7 @@ npx prisma studio
 
 ```typescript
 // lib/prisma.ts - 创建 Prisma Client 单例
-import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
