@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Image from 'next/image';
 
@@ -9,26 +9,65 @@ export default function CreatePost() {
   const [content, setContent] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string>('');
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_IMAGES = 10;
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
 
   // 处理图片上传
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    // 将文件转换为 base64 用于预览
+    setUploadError('');
+
+    // 检查图片数量限制
+    if (images.length + files.length > MAX_IMAGES) {
+      setUploadError(`最多只能上传 ${MAX_IMAGES} 张图片`);
+      return;
+    }
+
+    // 验证并转换文件
     Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+      // 验证文件类型
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setUploadError(`不支持的文件格式：${file.name}。请上传 JPG、PNG 或 GIF 格式`);
+        return;
+      }
+
+      // 验证文件大小
+      if (file.size > MAX_FILE_SIZE) {
+        setUploadError(`文件 ${file.name} 过大。请上传小于 5MB 的图片`);
+        return;
+      }
+
+      // 使用 URL.createObjectURL 替代 base64，更高效
+      const objectUrl = URL.createObjectURL(file);
+      setImages((prev) => [...prev, objectUrl]);
     });
   };
 
   // 删除图片
   const handleRemoveImage = (index: number) => {
+    const imageToRemove = images[index];
+    // 释放 URL 对象内存
+    if (imageToRemove.startsWith('blob:')) {
+      URL.revokeObjectURL(imageToRemove);
+    }
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // 组件卸载时清理 URL 对象
+  useEffect(() => {
+    return () => {
+      images.forEach((url) => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [images]);
 
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,10 +88,16 @@ export default function CreatePost() {
     alert('游记发布成功！');
     setIsSubmitting(false);
     
-    // 重置表单
+    // 清理并重置表单
+    images.forEach((url) => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
     setTitle('');
     setContent('');
     setImages([]);
+    setUploadError('');
   };
 
   return (
@@ -150,7 +195,7 @@ export default function CreatePost() {
                       <span className="font-semibold text-yellow-600">点击上传</span> 或拖拽图片到这里
                     </p>
                     <p className="text-xs text-gray-500">
-                      支持 PNG, JPG, GIF 格式（建议大小不超过 5MB）
+                      支持 PNG, JPG, GIF 格式（单个文件不超过 5MB，最多 {MAX_IMAGES} 张）
                     </p>
                   </div>
                   <input
@@ -164,11 +209,29 @@ export default function CreatePost() {
                 </label>
               </div>
 
+              {/* Error Message */}
+              {uploadError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start">
+                  <svg
+                    className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-sm text-red-700">{uploadError}</span>
+                </div>
+              )}
+
               {/* Image Preview Grid */}
               {images.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-3">
-                    已上传 {images.length} 张图片
+                    已上传 {images.length} / {MAX_IMAGES} 张图片
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {images.map((image, index) => (
@@ -176,6 +239,7 @@ export default function CreatePost() {
                         key={index}
                         className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200"
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image}
                           alt={`上传图片 ${index + 1}`}
