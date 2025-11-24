@@ -1,5 +1,6 @@
 import Navbar from '@/components/Navbar';
 import TravelPosts from '@/components/TravelPosts';
+import Link from 'next/link';
 
 export default function Community() {
   return (
@@ -42,9 +43,11 @@ export default function Community() {
                 </button>
               </div>
               
-              <button className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-full font-medium transition-colors">
-                发布游记
-              </button>
+              <Link href="/create-post">
+                <button className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-full font-medium transition-colors">
+                  发布游记
+                </button>
+              </Link>
             </div>
           </div>
 
