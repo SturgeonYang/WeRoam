@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
+import { useRouter } from 'next/navigation'; // 1. 引入 useRouter
 
 export default function CreatePost() {
+  const router = useRouter(); // 2. 初始化 router
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -101,9 +103,14 @@ export default function CreatePost() {
     // 模拟提交延迟
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
-    setSuccessMessage('游记发布成功！');
+    setSuccessMessage('游记发布成功！即将返回列表页...'); // 更新提示语
     setIsSubmitting(false);
     
+    // 3. 添加跳转逻辑：1.5秒后跳转回社区列表
+    setTimeout(() => {
+      router.push('/community');
+    }, 1500);
+
     // 清理并重置表单
     images.forEach((url) => {
       if (url.startsWith('blob:')) {

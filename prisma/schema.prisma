@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL") // 恢复这一行
 }
 
 // ============================================================
@@ -15,7 +16,7 @@ datasource db {
 // 存储所有注册用户的基本信息
 // ============================================================
 model User {
-  id       String  @id @default(cuid()) // 用户唯一标识符，自动生成的 CUID
+  id       Int     @id @default(autoincrement()) // 改为 Int 和 autoincrement
   email    String  @unique // 用户邮箱地址，必须唯一，用于登录
   username String  @unique // 用户名，必须唯一，用于显示和@提及
   password String // 用户密码（应该经过加密存储）
@@ -39,7 +40,7 @@ model User {
 // 存储用户发布的旅行游记内容
 // ============================================================
 model TravelPost {
-  id         String  @id @default(cuid()) // 游记唯一标识符，自动生成的 CUID
+  id         Int      @id @default(autoincrement()) // 改为 Int
   title      String // 游记标题，必填，如"北京三日游"
   content    String // 游记正文内容，必填，支持 Markdown 或纯文本
   images     String? // 图片 URL 列表，以 JSON 数组字符串存储，如 ["url1", "url2"]
@@ -58,7 +59,7 @@ model TravelPost {
   updatedAt DateTime @updatedAt // 游记最后更新时间，自动更新
 
   // 关联关系
-  authorId String // 作者 ID（外键，关联到 User 表）
+  authorId Int // 作者 ID（外键，关联到 User 表）
   author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade) // 作者信息，删除用户时级联删除游记
   comments Comment[] // 该游记的所有评论（一对多关系）
 
@@ -73,20 +74,20 @@ model TravelPost {
 // 存储用户对游记的评论
 // ============================================================
 model Comment {
-  id      String @id @default(cuid()) // 评论唯一标识符，自动生成的 CUID
+  id      Int      @id @default(autoincrement()) // 评论唯一标识符，自动生成的 CUID
   content String // 评论内容，必填
 
   createdAt DateTime @default(now()) // 评论创建时间，自动设置为当前时间
   updatedAt DateTime @updatedAt // 评论最后更新时间，自动更新
 
   // 关联关系
-  authorId String // 评论作者 ID（外键，关联到 User 表）
+  authorId Int // 评论作者 ID（外键，关联到 User 表）
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade) // 评论作者信息，删除用户时级联删除评论
 
-  postId String // 所属游记 ID（外键，关联到 TravelPost 表）
+  postId Int // 所属游记 ID（外键，关联到 TravelPost 表）
   post   TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade) // 所属游记信息，删除游记时级联删除评论
 
-  parentId String? // 父评论 ID（可选），用于实现评论回复功能
+  parentId Int? // 父评论 ID（可选），用于实现评论回复功能
   parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade) // 父评论信息
   replies  Comment[] @relation("CommentReplies") // 该评论的所有回复（一对多关系）
 
