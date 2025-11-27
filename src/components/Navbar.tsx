@@ -1,9 +1,9 @@
-'use client';
+'use client'; // 1. 必须标记为客户端组件
 
-import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -12,10 +12,10 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="bg-white/90 backdrop-blur-sm shadow-lg border-b border-yellow-200 sticky top-0 z-50">
+    <nav className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+        <div className="flex justify-between h-16">
+          {/* Logo 区域 */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-16 h-16 rounded-lg overflow-hidden">
@@ -29,15 +29,12 @@ export default function Navbar() {
                   priority
                 />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-800 bg-clip-text text-transparent">
-                云旅札记
-              </span>
-              <span className="text-sm text-gray-500 hidden sm:block">WeRoam</span>
+              <span className="font-bold text-xl text-gray-800 tracking-tight">WeRoam</span>
             </Link>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex space-x-8">
+          {/* Navigation Links */}
+          <div className="hidden sm:flex sm:space-x-8 items-center">
             <Link
               href="/"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -48,6 +45,7 @@ export default function Navbar() {
             >
               首页
             </Link>
+
             <Link
               href="/community"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -58,6 +56,7 @@ export default function Navbar() {
             >
               社区
             </Link>
+
             <Link
               href="/profile"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -87,7 +86,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-gray-700 hover:text-yellow-800 focus:outline-none focus:text-yellow-800"
