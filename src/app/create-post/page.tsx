@@ -1,149 +1,220 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
-import { useRouter } from 'next/navigation'; // 1. 引入 useRouter
+import { useEffect, useMemo, useState } from "react";
+import Navbar from "@/components/Navbar";
+import { useRouter } from "next/navigation";
 
-export default function CreatePost() {
-  const router = useRouter(); // 2. 初始化 router
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+// 热门标签（供选择）
+const HOT_TAGS = [
+  "海边",
+  "城市漫步",
+  "美食",
+  "露营",
+  "自驾",
+  "徒步",
+  "亲子",
+  "夜景",
+  "博物馆",
+  "小众目的地",
+];
+
+export default function CreatePostModal() {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState(""); // 游记正文
   const [images, setImages] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadError, setUploadError] = useState<string>('');
-  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string>("");
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  // 位置
+  const [location, setLocation] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
+
+  // 额外选的热门标签（最多 3 个）
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const MAX_IMAGES = 10;
-  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+  const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
 
-  // 处理图片上传
+  // 从正文解析 #标签，最多 3 个
+  const parsedTags = useMemo(() => {
+    const regex = /#([^\s#]+)/g;
+    const set = new Set<string>();
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      set.add(match[1]);
+    }
+    const result = Array.from(set).slice(0, 3);
+    console.log("parsedTags =>", result);
+    return result;
+  }, [content]);
+
+  // 热门标签点击
+  const toggleHotTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else if (selectedTags.length < 3) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  // 获取定位
+  const handleAutoLocate = () => {
+  if (!navigator.geolocation) {
+    alert("当前浏览器不支持定位功能");
+    return;
+  }
+
+  setIsLocating(true);
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+
+      // 这里先简单拼一个字符串，你可以在 console 里看到真实坐标
+      console.log("当前定位经纬度：", latitude, longitude);
+      setLocation(`纬度 ${latitude.toFixed(4)}, 经度 ${longitude.toFixed(4)}`);
+
+      setIsLocating(false);
+    },
+    (err) => {
+      console.error("定位失败：", err);
+      if (err.code === err.PERMISSION_DENIED) {
+        alert("你拒绝了定位权限，请在浏览器中允许访问位置信息");
+      } else {
+        alert("定位失败，请稍后再试");
+      }
+      setIsLocating(false);
+    },
+    {
+      enableHighAccuracy: true, // 尽量使用高精度
+      timeout: 10000,           // 最长 10 秒
+      maximumAge: 300000,       // 允许使用 5 分钟内的缓存位置
+    }
+  );
+};
+
+  // 图片上传
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    setUploadError('');
+    setUploadError("");
 
-    // 检查图片数量限制
     const remainingSlots = MAX_IMAGES - images.length;
     if (files.length > remainingSlots) {
-      setUploadError(`最多还能上传 ${remainingSlots} 张图片（当前 ${images.length}/${MAX_IMAGES}）`);
+      setUploadError(
+        `最多还能上传 ${remainingSlots} 张图片（当前 ${images.length}/${MAX_IMAGES}）`
+      );
       return;
     }
 
-    // 验证并转换文件
     const validFiles: string[] = [];
     const errors: string[] = [];
 
     Array.from(files).forEach((file) => {
-      // 验证文件类型
       if (!ALLOWED_TYPES.includes(file.type)) {
         errors.push(`${file.name}：格式不支持`);
         return;
       }
 
-      // 验证文件大小
       if (file.size > MAX_FILE_SIZE) {
         errors.push(`${file.name}：文件过大（>5MB）`);
         return;
       }
 
-      // 使用 URL.createObjectURL 替代 base64，更高效
       const objectUrl = URL.createObjectURL(file);
       validFiles.push(objectUrl);
     });
 
-    // 显示错误信息
     if (errors.length > 0) {
-      setUploadError(`以下文件无法上传：${errors.join('、')}`);
+      setUploadError(`以下文件无法上传：${errors.join("、")}`);
     }
 
-    // 添加有效文件
     if (validFiles.length > 0) {
       setImages((prev) => [...prev, ...validFiles]);
     }
   };
 
-  // 删除图片
   const handleRemoveImage = (index: number) => {
     const imageToRemove = images[index];
-    // 释放 URL 对象内存
-    if (imageToRemove.startsWith('blob:')) {
+    if (imageToRemove.startsWith("blob:")) {
       URL.revokeObjectURL(imageToRemove);
     }
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 组件卸载时清理 URL 对象
   useEffect(() => {
     return () => {
       images.forEach((url) => {
-        if (url.startsWith('blob:')) {
+        if (url.startsWith("blob:")) {
           URL.revokeObjectURL(url);
         }
       });
     };
   }, [images]);
 
-  // 提交表单
+  // 提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSuccessMessage('');
+    if (!title.trim() || !content.trim()) return;
 
-    // TODO: 实现实际的提交逻辑
-    // 这里应该调用 API 将数据保存到数据库
-    console.log({
+    setSubmitting(true);
+    setSuccessMessage("");
+
+    // 合并正文解析 + 热门标签，去重
+    const mergedTags = Array.from(
+      new Set<string>([...parsedTags, ...selectedTags])
+    );
+
+    console.log("submit payload =>", {
       title,
       content,
       images,
+      location: location.trim() || null,
+      tags: mergedTags,
     });
 
-    // 模拟提交延迟
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    setSuccessMessage('游记发布成功！即将返回列表页...'); // 更新提示语
-    setIsSubmitting(false);
-    
-    // 3. 添加跳转逻辑：1.5秒后跳转回社区列表
+    await new Promise((r) => setTimeout(r, 1000));
+
+    setSuccessMessage("游记发布成功！即将返回列表页...");
+    setSubmitting(false);
+
     setTimeout(() => {
-      router.push('/community');
+      router.push("/community");
     }, 1500);
 
-    // 清理并重置表单
     images.forEach((url) => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
     });
-    setTitle('');
-    setContent('');
+    setTitle("");
+    setContent("");
     setImages([]);
-    setUploadError('');
-    
-    // 3秒后自动关闭成功消息
-    setTimeout(() => setSuccessMessage(''), 3000);
+    setUploadError("");
+    setLocation("");
+    setSelectedTags([]);
+    setTimeout(() => setSuccessMessage(""), 3000);
   };
 
-  // 处理取消操作
   const handleCancel = () => {
     if (title.trim() || content.trim() || images.length > 0) {
       setShowCancelDialog(true);
     }
   };
 
-  // 确认取消
   const confirmCancel = () => {
     images.forEach((url) => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
     });
-    setTitle('');
-    setContent('');
+    setTitle("");
+    setContent("");
     setImages([]);
-    setUploadError('');
+    setUploadError("");
+    setLocation("");
+    setSelectedTags([]);
     setShowCancelDialog(false);
   };
 
@@ -222,9 +293,12 @@ export default function CreatePost() {
             </p>
           </div>
 
-          {/* Content Textarea */}
+          {/* 正文 + 标签 + 热门标签（放在一起） */}
           <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
-            <label htmlFor="content" className="block text-lg font-semibold text-gray-800 mb-3">
+            <label
+              htmlFor="content"
+              className="block text-lg font-semibold text-gray-800 mb-3"
+            >
               游记内容
               <span className="text-red-500 ml-1">*</span>
             </label>
@@ -232,18 +306,103 @@ export default function CreatePost() {
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="分享您的旅行经历、感受、攻略...&#10;&#10;可以包括：&#10;• 旅行路线和行程安排&#10;• 景点介绍和游玩体验&#10;• 美食推荐和住宿建议&#10;• 旅行中的趣事和感悟"
+              placeholder="分享您的旅行经历、感受、攻略..."
               required
               rows={12}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-y text-gray-800 placeholder-gray-400"
             />
             <div className="flex items-center justify-between mt-2">
               <p className="text-sm text-gray-500">
-                详细记录您的旅行故事
+                可以在内容里输入 <span className="font-semibold">#标签</span>，
+                例如：#冲浪 #海边
               </p>
-              <p className="text-sm text-gray-400">
-                {content.length} 字
-              </p>
+              <p className="text-sm text-gray-400">{content.length} 字</p>
+            </div>
+
+            {/* 正文自动解析出的标签 */}
+            <div className="mt-4">
+              {parsedTags.length > 0 && (
+                <p className="text-sm text-gray-600 mb-2">正文中识别出的标签：</p>
+              )}
+              {parsedTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-block bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full px-3 py-1 mr-2 mb-2"
+                >
+                  #{tag}
+                </span>
+              ))}
+              {parsedTags.length === 0 && (
+                <p className="text-xs text-gray-400">
+                  还没有识别到标签，试试输入：今天去了
+                  <span className="font-medium text-yellow-700">#海边</span>。
+                </p>
+              )}
+            </div>
+
+            {/* 热门标签（和正文标签放在同一块） */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="block text-sm font-semibold text-gray-800">
+                  热门标签（可额外选择最多 3 个）
+                </span>
+                {selectedTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTags([])}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    清空选择
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {HOT_TAGS.map((tag) => {
+                  const selected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleHotTag(tag)}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        selected
+                          ? "bg-yellow-100 border-yellow-400 text-yellow-800"
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTags.length > 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  已选择：{selectedTags.map((t) => `#${t}`).join(" ， ")}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 位置单独一张卡片 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
+            <label className="block text-lg font-semibold text-gray-800 mb-3">
+              所在位置
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="例如：成都市 · 宽窄巷子"
+                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all text-gray-800 placeholder-gray-400"
+              />
+              <button
+                type="button"
+                onClick={handleAutoLocate}
+                className="sm:w-auto px-4 py-3 bg-blue-50 text-blue-600 font-semibold rounded-xl border border-blue-100 hover:bg-blue-100 transition-all whitespace-nowrap"
+              >
+                {isLocating ? "定位中..." : "📍 获取定位"}
+              </button>
             </div>
           </div>
 
@@ -368,10 +527,10 @@ export default function CreatePost() {
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <button
               type="submit"
-              disabled={isSubmitting || !title.trim() || !content.trim()}
+              disabled={submitting || !title.trim() || !content.trim()}
               className="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
             >
-              {isSubmitting ? (
+              {submitting ? (
                 <span className="flex items-center justify-center">
                   <svg
                     className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -395,7 +554,7 @@ export default function CreatePost() {
                   发布中...
                 </span>
               ) : (
-                '发布游记'
+                "发布游记"
               )}
             </button>
             

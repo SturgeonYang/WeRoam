@@ -74,22 +74,24 @@ model TravelPost {
 // 存储用户对游记的评论
 // ============================================================
 model Comment {
-  id      Int      @id @default(autoincrement()) // 评论唯一标识符，自动生成的 CUID
-  content String // 评论内容，必填
-
+  id        Int      @id @default(autoincrement())
+  content   String
   createdAt DateTime @default(now()) // 评论创建时间，自动设置为当前时间
   updatedAt DateTime @updatedAt // 评论最后更新时间，自动更新
 
-  // 关联关系
-  authorId Int // 评论作者 ID（外键，关联到 User 表）
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade) // 评论作者信息，删除用户时级联删除评论
+  // 新增：点赞数
+  likeCount Int      @default(0)
 
-  postId Int // 所属游记 ID（外键，关联到 TravelPost 表）
-  post   TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade) // 所属游记信息，删除游记时级联删除评论
+  // 新增：支持回复功能 (自关联)
+  parentId  Int?     // 父评论 ID (可选，如果是顶级评论则为空)
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
 
-  parentId Int? // 父评论 ID（可选），用于实现评论回复功能
-  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade) // 父评论信息
-  replies  Comment[] @relation("CommentReplies") // 该评论的所有回复（一对多关系）
+  // 关联关系保持不变
+  post      TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int
 
   @@index([authorId]) // 为作者 ID 创建索引，提高查询效率
   @@index([postId]) // 为游记 ID 创建索引，便于查询特定游记的评论
