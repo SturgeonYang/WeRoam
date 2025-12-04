@@ -121,7 +121,14 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         {/* 搜索框 */}
         <div className="bg-white p-5 rounded-xl shadow-sm border border-yellow-100">
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <span>🔍</span> 搜索游记
+            {/* 搜索图标换成自定义图片 */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icons/search.png"
+              alt="搜索"
+              className="w-5 h-5"
+            />
+            <span>搜索游记</span>
           </h3>
           <input
             type="text"
@@ -136,7 +143,13 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         <div className="bg-white p-5 rounded-xl shadow-sm border border-yellow-100">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              <span>🏷️</span> 热门标签
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/hot-tag.png"  // 这里用你保存的文件名
+                alt="热门标签"
+                className="w-5 h-5"
+              />
+              <span>热门标签</span>
             </h3>
             {selectedTag && (
               <button
@@ -171,7 +184,13 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         {/* 攻略群入口：改为跳转新页面 */}
         <div className="bg-white p-5 rounded-xl shadow-sm border border-yellow-100">
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <span>💬</span> 攻略群
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icons/group.png"   // 用你保存的文件名
+              alt="攻略群"
+              className="w-5 h-5"
+            />
+            <span>攻略群</span>
           </h3>
           <p className="text-sm text-gray-500 mb-4">
             寻找一起出行的旅伴，加入目的地攻略群，获取一手经验。
@@ -256,7 +275,13 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                   )}
                   {post.location && (
                     <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <span>📍</span> {post.location}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/icons/location2.png"
+                        alt="位置"
+                        className="w-3 h-3"
+                      />
+                      <span>{post.location}</span>
                     </div>
                   )}
                   <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[90%]">
@@ -304,9 +329,12 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                         className="text-gray-400 hover:text-blue-500 transition-colors flex items-center gap-1 text-xs group/btn"
                         title="转发"
                       >
-                        <span className="transform group-hover/btn:rotate-12 transition-transform">
-                          ↗️
-                        </span>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/icons/share2.png"
+                          alt="转发"
+                          className="w-4 h-4 transform group-hover/btn:rotate-12 transition-transform"
+                        />
                       </button>
 
                       <button
@@ -315,13 +343,19 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                           isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
                         }`}
                       >
-                        <span
-                          className={`transform transition-transform ${
+                        {/* 点赞图标：未点赞 / 已点赞 两张 svg */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={
+                            isLiked
+                              ? '/icons/喜欢_like (1).svg'
+                              : '/icons/喜欢_like.svg'
+                          }
+                          alt="点赞"
+                          className={`w-4 h-4 transform transition-transform ${
                             isLiked ? 'scale-110' : ''
                           }`}
-                        >
-                          {isLiked ? '❤️' : '🤍'}
-                        </span>
+                        />
                         <span>{post.likeCount + (isLiked ? 1 : 0)}</span>
                       </button>
                     </div>

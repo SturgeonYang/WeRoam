@@ -143,8 +143,24 @@ export default function PostDetail({ post }: PostDetailProps) {
             </div>
           </div>
           <div className="flex gap-4">
-            <span>❤️ {post.likeCount} 喜欢</span>
-            <span>💬 {comments.length} 评论</span>
+            <span className="flex items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/喜欢_like (1).svg"
+                alt="喜欢"
+                className="w-4 h-4"
+              />
+              <span>{post.likeCount} 喜欢</span>
+            </span>
+            <span className="flex items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/评论_comments.svg"
+                alt="评论"
+                className="w-4 h-4"
+              />
+              <span>{comments.length} 评论</span>
+            </span>
           </div>
         </div>
       </div>

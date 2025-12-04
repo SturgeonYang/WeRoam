@@ -2,12 +2,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
 
 const GROUPS = [
   { name: '广西', members: 32939, desc: '山水秘境 · 桂林周边/阳朔结伴群' },
   { name: '四川', members: 50147, desc: '成都·川西·九寨沟深度游攻略群' },
   { name: '内蒙古', members: 30777, desc: '草原露营 · 自驾穿越 · 星空摄影群' },
+  { name: '云南', members: 61234, desc: '大理·丽江·香格里拉慢旅行群' },
+  { name: '西藏', members: 42890, desc: '进藏路线·高原适应·自驾拼车群' },
+  { name: '海南', members: 25670, desc: '三亚·万宁·冲浪潜水海岛度假群' },
+  { name: '新疆', members: 38901, desc: '北疆南疆环线 · 秋季自驾摄影群' },
+  { name: '广东', members: 30111, desc: '粤港澳周末游 · 美食探店拼车群' },
+  { name: '浙江', members: 27890, desc: '杭州·舟山·莫干山周边度假群' },
 ];
 
 export default function CommunityGroupsPage() {
@@ -15,27 +20,36 @@ export default function CommunityGroupsPage() {
 
   return (
     <div className="min-h-screen bg-yellow-50">
-      <Navbar />
+      {/* 顶部返回 + 标题区 */}
+      <div className="bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-300 pt-6 pb-10">
+        <div className="max-w-5xl mx-auto px-4">
+          {/* 返回按钮 */}
+          <button
+            onClick={() => router.push('/community')}
+            className="inline-flex items-center text-sm text-yellow-900 hover:text-yellow-950 mb-4"
+          >
+            ← 返回
+          </button>
 
-      {/* 顶部黄条 */}
-      <div className="bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-300 py-10">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <p className="text-sm text-yellow-900/80 mb-2">在这里</p>
-            <h1 className="text-3xl font-bold text-yellow-950 mb-3">
-              寻找旅行搭子 · 加入目的地攻略群
-            </h1>
-            <p className="text-sm text-yellow-900/80 max-w-xl">
-              可以添加实用的旅行攻略，帮助其他旅行者，更能找到同路人一起出发。
-            </p>
-          </div>
-          <div className="w-full md:w-auto">
-            <div className="bg-white rounded-full shadow-inner flex items-center px-4 py-2 max-w-md md:max-w-sm">
-              <input
-                className="flex-1 bg-transparent border-0 focus:outline-none text-sm px-2"
-                placeholder="搜索你想去的目的地"
-              />
-              <span className="text-gray-400 text-lg">🔍</span>
+          {/* 标题与搜索 */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <p className="text-sm text-yellow-900/80 mb-2">在这里</p>
+              <h1 className="text-3xl font-bold text-yellow-950 mb-3">
+                寻找旅行搭子 · 加入目的地攻略群
+              </h1>
+              <p className="text-sm text-yellow-900/80 max-w-xl">
+                可以添加实用的旅行攻略，帮助其他旅行者，更能找到同路人一起出发。
+              </p>
+            </div>
+            <div className="w-full md:w-auto">
+              <div className="bg-white rounded-full shadow-inner flex items-center px-4 py-2 max-w-md md:max-w-sm">
+                <input
+                  className="flex-1 bg-transparent border-0 focus:outline-none text-sm px-2"
+                  placeholder="搜索你想去的目的地"
+                />
+                <span className="text-gray-400 text-lg">🔍</span>
+              </div>
             </div>
           </div>
         </div>
@@ -43,14 +57,6 @@ export default function CommunityGroupsPage() {
 
       {/* 内容 */}
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* 返回社区 */}
-        <button
-          onClick={() => router.push('/community')}
-          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
-        >
-          ← 返回游记广场
-        </button>
-
         {/* “我的攻略群” 按钮 */}
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xl font-bold text-gray-900">热门目的地攻略群</h2>
@@ -66,8 +72,18 @@ export default function CommunityGroupsPage() {
               key={g.name}
               className="bg-white rounded-3xl shadow-md overflow-hidden border border-yellow-100 flex flex-col hover:shadow-lg transition-shadow"
             >
-              {/* 封面占位，将来可以换真实图片 */}
-              <div className="h-40 bg-gradient-to-tr from-yellow-100 via-yellow-50 to-yellow-200" />
+              {/* 封面二维码占位图 */}
+              <div className="h-40 bg-gray-100 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=WeRoam-${encodeURIComponent(
+                    g.name,
+                  )}`}
+                  alt={`${g.name} 攻略群二维码`}
+                  className="w-24 h-24 object-contain rounded-md border border-gray-200 bg-white"
+                />
+              </div>
+
               <div className="p-4 flex-1 flex flex-col">
                 <div className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-1">
                   <span className="text-lg">📍</span>

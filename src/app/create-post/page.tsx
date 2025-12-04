@@ -399,9 +399,17 @@ export default function CreatePostModal() {
               <button
                 type="button"
                 onClick={handleAutoLocate}
-                className="sm:w-auto px-4 py-3 bg-blue-50 text-blue-600 font-semibold rounded-xl border border-blue-100 hover:bg-blue-100 transition-all whitespace-nowrap"
+                disabled={isLocating}
+                className="sm:w-auto px-4 py-3 bg-blue-50 text-blue-600 font-semibold rounded-xl border border-blue-100 hover:bg-blue-100 transition-all whitespace-nowrap flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isLocating ? "定位中..." : "📍 获取定位"}
+                {/* 定位图标：public/icons/location.png */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icons/location.png"
+                  alt="定位"
+                  className="w-5 h-5"
+                />
+                <span>{isLocating ? "定位中..." : "获取定位"}</span>
               </button>
             </div>
           </div>
