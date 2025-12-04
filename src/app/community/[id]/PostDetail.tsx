@@ -3,241 +3,347 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+// 定义评论接口
 interface Comment {
   id: number;
   content: string;
-  createdAt: Date;
+  createdAt: Date | string;
+  likeCount: number;
   author: {
-    nickname: string | null;
-    username: string | null;
+    id: number;
+    username: string;
     avatar: string | null;
   };
+  replies?: Comment[]; // 子评论
+  parentId?: number | null;
 }
 
 interface PostDetailProps {
   post: {
-    id: number; // <--- 改回 number
+    id: number;
     title: string;
-    content: string | null;
-    coverImage: string | null;
-    location: string | null;
+    content: string;
+    location?: string | null;
+    coverImage?: string | null;
+    tags?: string[];
     likeCount: number;
-    tags: string[]; // 假设传入的是解析后的数组
-    createdAt: Date;
     author: {
-      id: number; // <--- 改回 number
-      nickname: string | null;
-      username: string | null;
-      avatar: string | null;
-      bio: string | null;
+      id: number;
+      username: string;
+      nickname?: string | null;
+      avatar?: string | null;
     };
     comments: Comment[];
   };
-  currentUser?: any; // 当前登录用户，可选
 }
 
 export default function PostDetail({ post }: PostDetailProps) {
   const router = useRouter();
-  const [likes, setLikes] = useState(post.likeCount);
-  const [isLiked, setIsLiked] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(post.comments);
+  
+  // 状态管理
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
   const [newComment, setNewComment] = useState('');
+  const [sortOrder, setSortOrder] = useState<'hot' | 'new'>('hot');
 
-  const handleLike = () => {
-    if (isLiked) {
-      setLikes(likes - 1);
+  // --- 排序逻辑 ---
+  const sortedComments = [...comments].sort((a, b) => {
+    if (sortOrder === 'hot') {
+      return b.likeCount - a.likeCount; // 热度：点赞多的在前
     } else {
-      setLikes(likes + 1);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // 时间：新的在前
     }
-    setIsLiked(!isLiked);
-  };
+  });
 
-  const handleSubmitComment = (e: React.FormEvent) => {
+  // --- 交互处理函数 ---
+
+  // 1. 发布评论
+  const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
 
-    // 模拟添加评论 (实际项目中应调用 API)
-    const mockComment: Comment = {
-      id: Date.now(),
+    const newCommentObj: Comment = {
+      id: Date.now(), // 临时 ID
       content: newComment,
       createdAt: new Date(),
+      likeCount: 0,
       author: {
-        nickname: '我',
+        id: 999, // 假设当前用户 ID
         username: 'me',
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Me',
       },
+      replies: [],
     };
 
-    setComments([mockComment, ...comments]);
+    setComments([newCommentObj, ...comments]);
     setNewComment('');
   };
 
-  const handleAvatarClick = (userId: number) => { // <--- 改回 number
-    alert(`跳转到用户 (ID: ${userId}) 的私聊界面`);
-    // router.push(`/chat/${userId}`);
+  // 2. 删除评论
+  const handleDeleteComment = (commentId: number) => {
+    if (confirm('确定要删除这条评论吗？')) {
+      setComments(comments.filter((c) => c.id !== commentId));
+    }
+  };
+
+  // 3. 点赞评论
+  const handleLikeComment = (commentId: number) => {
+    setComments(comments.map(c => 
+      c.id === commentId ? { ...c, likeCount: c.likeCount + 1 } : c
+    ));
+  };
+
+  // 4. 新增：回复评论的处理函数
+  const handleReplyComment = (parentId: number, content: string) => {
+    const newReply: Comment = {
+      id: Date.now(),
+      content,
+      createdAt: new Date(),
+      likeCount: 0,
+      author: {
+        id: 999, // 模拟当前用户
+        username: 'me',
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Me',
+      },
+      parentId,
+    };
+
+    // 找到对应的父评论，把新回复加进去
+    setComments(comments.map(c => {
+      if (c.id === parentId) {
+        return {
+          ...c,
+          replies: [...(c.replies || []), newReply]
+        };
+      }
+      return c;
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      {/* 顶部导航栏 */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-4">
-        <button 
-          onClick={() => router.back()}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          ← 返回
-        </button>
-        <span className="font-bold text-gray-700">游记详情</span>
+    <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen shadow-sm">
+      {/* 返回按钮 */}
+      <button onClick={() => router.back()} className="mb-6 text-gray-500 hover:text-blue-600 flex items-center gap-2">
+        ← 返回列表
+      </button>
+
+      {/* 文章头部 */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">{post.title}</h1>
+        
+        <div className="flex items-center justify-between text-sm text-gray-500 border-b pb-6">
+          <div className="flex items-center gap-3">
+            <img 
+              src={post.author.avatar || 'https://via.placeholder.com/40'} 
+              alt={post.author.username}
+              className="w-10 h-10 rounded-full object-cover border"
+            />
+            <div>
+              <p className="font-medium text-gray-900">{post.author.nickname || post.author.username}</p>
+              <p>{post.location || '未知地点'}</p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <span className="flex items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/喜欢_like (1).svg"
+                alt="喜欢"
+                className="w-4 h-4"
+              />
+              <span>{post.likeCount} 喜欢</span>
+            </span>
+            <span className="flex items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/评论_comments.svg"
+                alt="评论"
+                className="w-4 h-4"
+              />
+              <span>{comments.length} 评论</span>
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-4xl mx-auto mt-6 px-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 左侧：主要内容 */}
-        <div className="lg:col-span-2 space-y-6">
-          <article className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            {/* 封面图 */}
-            {post.coverImage && (
-              <div className="relative h-64 md:h-96 bg-gray-100">
-                <img 
-                  src={post.coverImage} 
-                  alt={post.title} 
-                  className="w-full h-full object-cover"
-                />
-                {post.location && (
-                  <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                    📍 {post.location}
-                  </div>
-                )}
-              </div>
-            )}
+      {/* 文章内容 */}
+      <article className="prose max-w-none mb-12">
+        {post.coverImage && (
+          <img src={post.coverImage} alt={post.title} className="w-full h-96 object-cover rounded-xl mb-8 shadow-md" />
+        )}
+        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">{post.content}</p>
+        
+        {/* 标签 */}
+        <div className="mt-8 flex gap-2">
+          {post.tags?.map((tag, index) => (
+            <span key={index} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      </article>
 
-            <div className="p-6 md:p-8">
-              {/* 标题和发布时间 */}
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{post.title}</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-                <span>{new Date(post.createdAt).toLocaleDateString()}</span>
-                <div className="flex gap-2">
-                  {post.tags.map(tag => (
-                    <span key={tag} className="text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">#{tag}</span>
-                  ))}
-                </div>
-              </div>
+      {/* 评论区 */}
+      <div className="bg-gray-50 p-6 rounded-xl">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-800">评论 ({comments.length})</h3>
+          
+          {/* 排序切换 */}
+          <div className="flex gap-2 text-sm">
+            <button 
+              onClick={() => setSortOrder('hot')}
+              className={`px-3 py-1 rounded-full ${sortOrder === 'hot' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}
+            >
+              最热
+            </button>
+            <button 
+              onClick={() => setSortOrder('new')}
+              className={`px-3 py-1 rounded-full ${sortOrder === 'new' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}
+            >
+              最新
+            </button>
+          </div>
+        </div>
 
-              {/* 正文 */}
-              <div className="prose prose-yellow max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap">
-                {post.content}
-              </div>
+        {/* 写评论 */}
+        <form onSubmit={handleAddComment} className="mb-8">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none bg-white"
+            placeholder="写下你的想法..."
+            rows={3}
+          />
+          <div className="flex justify-end mt-2">
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              发布评论
+            </button>
+          </div>
+        </form>
 
-              {/* 底部交互栏 */}
-              <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
-                <div className="flex gap-4">
-                  <button 
-                    onClick={handleLike}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
-                      isLiked ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span className={isLiked ? 'scale-110' : ''}>{isLiked ? '❤️' : '🤍'}</span>
-                    <span className="font-medium">{likes}</span>
-                  </button>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-600 rounded-full hover:bg-gray-100 transition-all">
-                    💬 <span className="font-medium">{comments.length}</span>
-                  </button>
-                </div>
-                <button className="text-gray-400 hover:text-gray-600">
-                  🔗 分享
-                </button>
-              </div>
-            </div>
-          </article>
+        {/* 评论列表 */}
+        <div className="space-y-6">
+          {sortedComments.map((comment) => (
+            <CommentItem 
+              key={comment.id} 
+              comment={comment} 
+              onDelete={handleDeleteComment}
+              onLike={handleLikeComment}
+              onReply={handleReplyComment} // <--- 记得把函数传下去
+            />
+          ))}
+          {comments.length === 0 && (
+            <p className="text-center text-gray-400 py-8">暂无评论，快来抢沙发吧！</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {/* 评论区 */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
-            <h3 className="text-lg font-bold text-gray-800 mb-6">评论 ({comments.length})</h3>
+// --- 子组件：单条评论 (支持回复和点赞) ---
+function CommentItem({ comment, onDelete, onLike, onReply }: { 
+  comment: Comment, 
+  onDelete: (id: number) => void, 
+  onLike: (id: number) => void,
+  onReply: (parentId: number, content: string) => void // <--- 新增类型定义
+}) {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState(''); // <--- 新增状态：记录回复内容
+
+  // 处理提交回复
+  const handleSubmitReply = () => {
+    if (!replyContent.trim()) return;
+    onReply(comment.id, replyContent); // 调用父组件函数
+    setIsReplying(false); // 关闭输入框
+    setReplyContent(''); // 清空内容
+  };
+
+  return (
+    <div className="flex gap-4 group">
+      <img 
+        src={comment.author.avatar || 'https://via.placeholder.com/40'} 
+        alt={comment.author.username}
+        className="w-10 h-10 rounded-full object-cover border flex-shrink-0"
+      />
+      <div className="flex-1">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start mb-2">
+            <span className="font-semibold text-gray-900">{comment.author.username}</span>
+            <span className="text-xs text-gray-400">
+              {new Date(comment.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+          <p className="text-gray-700 mb-3">{comment.content}</p>
+          
+          {/* 底部操作栏 */}
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <button 
+              onClick={() => onLike(comment.id)}
+              className="hover:text-red-500 flex items-center gap-1 transition-colors"
+            >
+              <span>👍</span> {comment.likeCount || 0}
+            </button>
             
-            {/* 发送评论框 */}
-            <form onSubmit={handleSubmitComment} className="flex gap-4 mb-8">
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Me" alt="Me" />
-              </div>
-              <div className="flex-1">
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="写下你的评论..."
-                  className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:border-yellow-400 focus:bg-white focus:ring-0 transition-all resize-none h-24"
-                />
-                <div className="flex justify-end mt-2">
-                  <button 
-                    type="submit"
-                    disabled={!newComment.trim()}
-                    className="px-4 py-2 bg-yellow-400 text-white font-bold rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    发送评论
-                  </button>
-                </div>
-              </div>
-            </form>
+            <button 
+              onClick={() => setIsReplying(!isReplying)}
+              className="hover:text-blue-600 transition-colors"
+            >
+              回复
+            </button>
 
-            {/* 评论列表 */}
-            <div className="space-y-6">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-4">
-                  <div 
-                    className="w-10 h-10 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden cursor-pointer"
-                    onClick={() => handleAvatarClick(0)} // 这里简化处理，实际应传ID
-                  >
-                    {comment.author.avatar && <img src={comment.author.avatar} alt="" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-gray-50 p-4 rounded-2xl rounded-tl-none">
-                      <div className="flex justify-between items-baseline mb-1">
-                        <span className="font-bold text-sm text-gray-800">{comment.author.nickname}</span>
-                        <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-gray-700 text-sm">{comment.content}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {comments.length === 0 && (
-                <div className="text-center text-gray-400 py-4">暂无评论，快来抢沙发吧！</div>
-              )}
-            </div>
+            <button 
+              onClick={() => onDelete(comment.id)}
+              className="hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+            >
+              删除
+            </button>
           </div>
         </div>
 
-        {/* 右侧：作者信息 */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24">
-            <div className="flex flex-col items-center text-center">
-              <div 
-                className="w-20 h-20 rounded-full border-4 border-yellow-100 overflow-hidden mb-4 cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => handleAvatarClick(post.author.id)}
+        {/* 回复输入框 (点击回复后显示) */}
+        {isReplying && (
+          <div className="mt-3 ml-2 animate-fade-in-down">
+            <input 
+              type="text" 
+              value={replyContent} // <--- 绑定 value
+              onChange={(e) => setReplyContent(e.target.value)} // <--- 绑定 onChange
+              placeholder={`回复 @${comment.author.username}...`}
+              className="w-full p-2 border rounded-md text-sm focus:outline-none focus:border-blue-500"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button onClick={() => setIsReplying(false)} className="text-xs text-gray-500">取消</button>
+              <button 
+                onClick={handleSubmitReply} // <--- 绑定点击事件
+                className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
               >
-                {post.author.avatar ? (
-                  <img src={post.author.avatar} alt={post.author.nickname || ''} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gray-200" />
-                )}
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">{post.author.nickname}</h3>
-              <p className="text-sm text-gray-500 mb-4">@{post.author.username}</p>
-              <p className="text-gray-600 text-sm mb-6 italic">"{post.author.bio || '这个作者很懒，什么都没写'}"</p>
-              
-              <div className="flex gap-2 w-full">
-                <button 
-                  onClick={() => handleAvatarClick(post.author.id)}
-                  className="flex-1 py-2 bg-yellow-400 hover:bg-yellow-500 text-white font-bold rounded-xl transition-colors"
-                >
-                  私聊
-                </button>
-                <button className="flex-1 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold rounded-xl transition-colors">
-                  关注
-                </button>
-              </div>
+                发送
+              </button>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* 新增：显示子评论 (回复列表) */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-4 space-y-3 pl-4 border-l-2 border-gray-100">
+            {comment.replies.map(reply => (
+              <div key={reply.id} className="flex gap-3 bg-gray-50 p-3 rounded-lg">
+                 <img 
+                    src={reply.author.avatar || 'https://via.placeholder.com/30'} 
+                    className="w-8 h-8 rounded-full"
+                    alt="avatar"
+                 />
+                 <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-gray-800">{reply.author.username}</span>
+                      <span className="text-xs text-gray-400">{new Date(reply.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-700">{reply.content}</p>
+                 </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

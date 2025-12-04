@@ -107,14 +107,6 @@ async function main() {
       likeCount: 156,
     },
     {
-      title: '纽约街头摄影',
-      content: '曼哈顿的摩天大楼与街头艺人，时代广场的霓虹灯，这座城市永远不睡觉。布鲁克林大桥的日落机位绝佳。',
-      coverImage: 'https://images.unsplash.com/photo-1496442226666-8d4a0e62e6e9?w=800',
-      tags: JSON.stringify(['纽约', '摄影', '城市']),
-      location: '纽约',
-      likeCount: 89,
-    },
-    {
       title: '圣托里尼的日落',
       content: '蓝顶白墙的建筑，爱琴海的湛蓝，这里拥有世界上最美的日落。伊亚小镇的悬崖步道虽然人多，但景色绝对值得。',
       coverImage: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800',
