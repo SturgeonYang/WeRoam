@@ -1,0 +1,680 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Navbar from "@/components/Navbar";
+import { useRouter, useParams } from "next/navigation";
+
+// 热门标签（供选择）
+const HOT_TAGS = [
+  "海边",
+  "城市漫步",
+  "美食",
+  "露营",
+  "自驾",
+  "徒步",
+  "亲子",
+  "夜景",
+  "博物馆",
+  "小众目的地",
+];
+
+export default function EditPostPage() {
+  const router = useRouter();
+  const params = useParams();
+  const postId = params.id;
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState(""); // 游记正文
+  const [images, setImages] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // 位置
+  const [location, setLocation] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
+
+  // 额外选的热门标签（最多 3 个）
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_IMAGES = 10;
+  const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+
+  const [customTag, setCustomTag] = useState("");
+
+  // Fetch post data
+  useEffect(() => {
+    const fetchPost = async () => {
+      try {
+        const res = await fetch(`/api/posts/${postId}`);
+        if (!res.ok) {
+            if (res.status === 404) {
+                alert("游记不存在");
+                router.push("/community");
+                return;
+            }
+            throw new Error("Failed to fetch post");
+        }
+        const data = await res.json();
+        
+        setTitle(data.title);
+        setContent(data.content);
+        setLocation(data.location || "");
+        
+        // Parse tags
+        let parsedTags: string[] = [];
+        if (data.tags) {
+            try {
+                parsedTags = typeof data.tags === 'string' ? JSON.parse(data.tags) : data.tags;
+            } catch (e) {
+                console.error("Failed to parse tags", e);
+            }
+        }
+        setSelectedTags(parsedTags);
+        
+        // Parse images if it's a JSON string, otherwise use empty array
+        let parsedImages: string[] = [];
+        if (data.images) {
+            try {
+                parsedImages = JSON.parse(data.images);
+            } catch (e) {
+                console.error("Failed to parse images", e);
+                // If it's not JSON, maybe it's a single string? Or just ignore.
+                // Assuming standard format is JSON array string.
+            }
+        }
+        setImages(parsedImages);
+
+      } catch (error) {
+        console.error(error);
+        alert("加载游记失败");
+        router.push("/community");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (postId) {
+      fetchPost();
+    }
+  }, [postId, router]);
+
+
+  // 热门标签点击
+  const toggleHotTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else if (selectedTags.length < 5) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  // 添加自定义标签
+  const handleAddCustomTag = () => {
+      const tag = customTag.trim();
+      if (tag && !selectedTags.includes(tag) && selectedTags.length < 5) {
+        setSelectedTags([...selectedTags, tag]);
+        setCustomTag("");
+      }
+  };
+
+  // 删除标签
+  const removeTag = (tag: string) => {
+    setSelectedTags(selectedTags.filter(t => t !== tag));
+  };
+
+  // 获取定位
+  const handleAutoLocate = () => {
+  if (!navigator.geolocation) {
+    alert("当前浏览器不支持定位功能");
+    return;
+  }
+
+  setIsLocating(true);
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      console.log("当前定位经纬度：", latitude, longitude);
+      setLocation(`纬度 ${latitude.toFixed(4)}, 经度 ${longitude.toFixed(4)}`);
+      setIsLocating(false);
+    },
+    (err) => {
+      console.error("定位失败：", err);
+      if (err.code === err.PERMISSION_DENIED) {
+        alert("你拒绝了定位权限，请在浏览器中允许访问位置信息");
+      } else {
+        alert("定位失败，请稍后再试");
+      }
+      setIsLocating(false);
+    },
+    {
+      enableHighAccuracy: true, 
+      timeout: 10000,           
+      maximumAge: 300000,       
+    }
+  );
+};
+
+  // 图片上传
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    setUploadError("");
+
+    const remainingSlots = MAX_IMAGES - images.length;
+    if (files.length > remainingSlots) {
+      setUploadError(
+        `最多还能上传 ${remainingSlots} 张图片（当前 ${images.length}/${MAX_IMAGES}）`
+      );
+      return;
+    }
+
+    const newImages: string[] = [];
+    const errors: string[] = [];
+
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        errors.push(`${file.name}：格式不支持`);
+        continue;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}：文件过大（>5MB）`);
+        continue;
+      }
+
+      // Upload to server
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        newImages.push(data.url);
+      } catch (err) {
+        console.error(err);
+        errors.push(`${file.name}：上传失败`);
+      }
+    }
+
+    if (errors.length > 0) {
+      setUploadError(`以下文件无法上传：${errors.join("、")}`);
+    }
+
+    if (newImages.length > 0) {
+      setImages((prev) => [...prev, ...newImages]);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 提交
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) return;
+
+    setSubmitting(true);
+    setSuccessMessage("");
+    setUploadError("");
+
+    // 合并手动输入 + 热门标签，去重
+    const mergedTags = Array.from(
+      new Set<string>([...selectedTags])
+    );
+
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          images,
+          location: location.trim() || null,
+          tags: mergedTags,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '更新失败');
+      }
+
+      setSuccessMessage("游记更新成功！即将返回详情页...");
+      
+      setTimeout(() => {
+        router.push(`/community/${postId}`);
+      }, 1500);
+      
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.message || "更新失败，请重试");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setShowCancelDialog(true);
+  };
+
+  const confirmCancel = () => {
+    router.back();
+  };
+
+  if (loading) {
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+                  <p className="text-gray-500">加载中...</p>
+              </div>
+          </div>
+      );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
+      <Navbar />
+
+      {/* Header */}
+      <div className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 py-12">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white text-center mb-2">
+            编辑游记
+          </h1>
+          <p className="text-yellow-100 text-center text-lg">
+            修改您的旅行故事
+          </p>
+        </div>
+      </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+          <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-3">确认取消</h3>
+            <p className="text-gray-600 mb-6">确定要放弃修改吗？未保存的更改将丢失。</p>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmCancel}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                确认取消
+              </button>
+              <button
+                onClick={() => setShowCancelDialog(false)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                继续编辑
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Title Input */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
+            <label htmlFor="title" className="block text-lg font-semibold text-gray-800 mb-3">
+              游记标题
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <input
+              type="text"
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="例如：北京故宫三日游 - 走进历史的长河"
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all text-gray-800 placeholder-gray-400"
+            />
+            <p className="text-sm text-gray-500 mt-2">
+              给您的游记起一个吸引人的标题
+            </p>
+          </div>
+
+          {/* 正文 + 标签 + 热门标签（放在一起） */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
+            <label
+              htmlFor="content"
+              className="block text-lg font-semibold text-gray-800 mb-3"
+            >
+              游记内容
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="分享您的旅行经历、感受、攻略..."
+              required
+              rows={12}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-y text-gray-800 placeholder-gray-400"
+            />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-sm text-gray-400">{content.length} 字</p>
+            </div>
+
+            {/* 自定义标签输入 */}
+            <div className="mt-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                添加标签
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={customTag}
+                  onChange={(e) => setCustomTag(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomTag();
+                    }
+                  }}
+                  placeholder="输入标签后按回车或点击添加"
+                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomTag}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium"
+                >
+                  添加
+                </button>
+              </div>
+              
+              {/* 已选标签展示 */}
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {selectedTags.length === 0 && (
+                  <p className="text-xs text-gray-400 py-1">
+                    暂无标签，请添加或从下方选择热门标签
+                  </p>
+                )}
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full px-3 py-1"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => toggleHotTag(tag)}
+                      className="ml-2 text-yellow-600 hover:text-yellow-900 focus:outline-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* 热门标签（和正文标签放在同一块） */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="block text-sm font-semibold text-gray-800">
+                  热门标签
+                </span>
+                {selectedTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTags([])}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    清空选择
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {HOT_TAGS.map((tag) => {
+                  const selected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleHotTag(tag)}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        selected
+                          ? "bg-yellow-100 border-yellow-400 text-yellow-800"
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                自定义标签和热门标签总共最多选择 5 个
+              </p>
+              {selectedTags.length > 0 && (
+                <p className="mt-1 text-xs text-gray-500">
+                  已选择：{selectedTags.map((t) => `#${t}`).join(" ， ")}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 位置单独一张卡片 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
+            <label className="block text-lg font-semibold text-gray-800 mb-3">
+              所在位置
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="例如：成都市 · 宽窄巷子"
+                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all text-gray-800 placeholder-gray-400"
+              />
+              <button
+                type="button"
+                onClick={handleAutoLocate}
+                disabled={isLocating}
+                className="sm:w-auto px-4 py-3 bg-blue-50 text-blue-600 font-semibold rounded-xl border border-blue-100 hover:bg-blue-100 transition-all whitespace-nowrap flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icons/location.png"
+                  alt="定位"
+                  className="w-5 h-5"
+                />
+                <span>{isLocating ? "定位中..." : "获取定位"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-yellow-100">
+            <label className="block text-lg font-semibold text-gray-800 mb-3">
+              上传图片
+            </label>
+            
+            <div className="space-y-4">
+              {/* Upload Button */}
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="image-upload"
+                  className="flex flex-col items-center justify-center w-full h-48 border-3 border-dashed border-yellow-300 rounded-xl cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-all group"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg
+                      className="w-12 h-12 mb-3 text-yellow-500 group-hover:text-yellow-600 transition-colors"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="mb-2 text-sm text-gray-600">
+                      <span className="font-semibold text-yellow-600">点击上传</span> 或拖拽图片到这里
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      支持 PNG, JPG, GIF 格式（单个文件不超过 5MB，最多 {MAX_IMAGES} 张）
+                    </p>
+                  </div>
+                  <input
+                    id="image-upload"
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                  />
+                </label>
+              </div>
+
+              {/* Error Message */}
+              {uploadError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start">
+                  <svg
+                    className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-sm text-red-700">{uploadError}</span>
+                </div>
+              )}
+
+              {/* Image Preview Grid */}
+              {images.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">
+                    已上传 {images.length} / {MAX_IMAGES} 张图片
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {images.map((image, index) => (
+                      <div
+                        key={index}
+                        className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={image}
+                          alt={`上传图片 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                        {/* Image Number */}
+                        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p className="text-sm text-gray-500 mt-3">
+              💡 提示：上传精美的照片可以让您的游记更加吸引人
+            </p>
+          </div>
+
+          {/* Submit Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <button
+              type="submit"
+              disabled={submitting || !title.trim() || !content.trim()}
+              className="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
+            >
+              {submitting ? (
+                <span className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  更新中...
+                </span>
+              ) : (
+                "更新游记"
+              )}
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="sm:w-auto px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all"
+            >
+              取消
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

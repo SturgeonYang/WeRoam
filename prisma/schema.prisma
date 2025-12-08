@@ -1,101 +1,149 @@
-// Prisma 数据库架构文件
-// 用于云旅札记 (WeRoam) 旅行游记社区项目
-// 文档: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // 恢复这一行
+  url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// 用户表 (User)
-// 存储所有注册用户的基本信息
-// ============================================================
 model User {
-  id       Int     @id @default(autoincrement()) // 改为 Int 和 autoincrement
-  email    String  @unique // 用户邮箱地址，必须唯一，用于登录
-  username String  @unique // 用户名，必须唯一，用于显示和@提及
-  password String // 用户密码（应该经过加密存储）
-  nickname String? // 昵称，可选字段，用于个性化显示
-  avatar   String? // 头像图片 URL，可选，默认可以使用系统头像
-  bio      String? // 个人简介，可选，用户可以介绍自己
-  location String? // 所在地，可选，如"北京"、"上海"等
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  username     String        @unique
+  password     String
+  nickname     String?
+  avatar       String?
+  bio          String?
+  location     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chatSessions ChatSession[]
+  commentLikes CommentLike[]
+  comments     Comment[]
+  favorites    Favorite[]
+  postLikes    PostLike[]
+  posts        TravelPost[]
+  followedBy   Follows[]     @relation("followedBy")
+  following    Follows[]     @relation("following")
 
-  createdAt DateTime @default(now()) // 账号创建时间，自动设置为当前时间
-  updatedAt DateTime @updatedAt // 账号信息最后更新时间，自动更新
-
-  // 关联关系
-  posts    TravelPost[] // 该用户发布的所有游记（一对多关系）
-  comments Comment[] // 该用户发表的所有评论（一对多关系）
-
-  @@map("users") // 数据库中的实际表名
+  @@map("users")
 }
 
-// ============================================================
-// 游记表 (TravelPost)
-// 存储用户发布的旅行游记内容
-// ============================================================
+model Follows {
+  follower    User @relation("following", fields: [followerId], references: [id])
+  followerId  Int
+  following   User @relation("followedBy", fields: [followingId], references: [id])
+  followingId Int
+
+  @@id([followerId, followingId])
+  @@map("follows")
+}
+
 model TravelPost {
-  id         Int      @id @default(autoincrement()) // 改为 Int
-  title      String // 游记标题，必填，如"北京三日游"
-  content    String // 游记正文内容，必填，支持 Markdown 或纯文本
-  images     String? // 图片 URL 列表，以 JSON 数组字符串存储，如 ["url1", "url2"]
-  coverImage String? // 封面图片 URL，可选，用于列表展示
+  id          Int        @id @default(autoincrement())
+  title       String
+  content     String
+  images      String?
+  coverImage  String?
+  location    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  tags        String?
+  published   Boolean    @default(true)
+  viewCount   Int        @default(0)
+  likeCount   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  authorId    Int
+  comments    Comment[]
+  favoritedBy Favorite[]
+  likedBy     PostLike[]
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  location  String? // 旅行目的地，可选，如"北京"、"巴黎"
-  startDate DateTime? // 旅行开始日期，可选
-  endDate   DateTime? // 旅行结束日期，可选
-  tags      String? // 标签，以 JSON 数组字符串存储，如 ["美食", "风景", "历史"]
-
-  published Boolean @default(true) // 是否已发布，默认为 true（发布状态）
-  viewCount Int     @default(0) // 浏览次数，默认为 0
-  likeCount Int     @default(0) // 点赞数，默认为 0
-
-  createdAt DateTime @default(now()) // 游记创建时间，自动设置为当前时间
-  updatedAt DateTime @updatedAt // 游记最后更新时间，自动更新
-
-  // 关联关系
-  authorId Int // 作者 ID（外键，关联到 User 表）
-  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade) // 作者信息，删除用户时级联删除游记
-  comments Comment[] // 该游记的所有评论（一对多关系）
-
-  @@index([authorId]) // 为作者 ID 创建索引，提高查询效率
-  @@index([published]) // 为发布状态创建索引，便于筛选已发布内容
-  @@index([createdAt]) // 为创建时间创建索引，便于按时间排序
-  @@map("travel_posts") // 数据库中的实际表名
+  @@index([authorId])
+  @@index([published])
+  @@index([createdAt])
+  @@map("travel_posts")
 }
 
-// ============================================================
-// 评论表 (Comment)
-// 存储用户对游记的评论
-// ============================================================
-model Comment {
-  id        Int      @id @default(autoincrement())
-  content   String
-  createdAt DateTime @default(now()) // 评论创建时间，自动设置为当前时间
-  updatedAt DateTime @updatedAt // 评论最后更新时间，自动更新
-
-  // 新增：点赞数
-  likeCount Int      @default(0)
-
-  // 新增：支持回复功能 (自关联)
-  parentId  Int?     // 父评论 ID (可选，如果是顶级评论则为空)
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
-
-  // 关联关系保持不变
-  post      TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+model Favorite {
+  id        Int        @id @default(autoincrement())
+  userId    Int
   postId    Int
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  Int
+  createdAt DateTime   @default(now())
+  post      TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([authorId]) // 为作者 ID 创建索引，提高查询效率
-  @@index([postId]) // 为游记 ID 创建索引，便于查询特定游记的评论
-  @@index([parentId]) // 为父评论 ID 创建索引，便于查询回复
-  @@index([createdAt]) // 为创建时间创建索引，便于按时间排序
-  @@map("comments") // 数据库中的实际表名
+  @@unique([userId, postId])
+  @@map("favorites")
+}
+
+model PostLike {
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  postId    Int
+  createdAt DateTime   @default(now())
+  post      TravelPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("post_likes")
+}
+
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  title     String        @default("新对话")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        Int         @id @default(autoincrement())
+  sessionId Int
+  role      String
+  content   String
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+model Comment {
+  id        Int           @id @default(autoincrement())
+  content   String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  likeCount Int           @default(0)
+  parentId  Int?
+  postId    Int
+  authorId  Int
+  likes     CommentLike[]
+  author    User          @relation(fields: [authorId], references: [id])
+  parent    Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[]     @relation("CommentReplies")
+  post      TravelPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([postId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  commentId Int
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@map("comment_likes")
 }
