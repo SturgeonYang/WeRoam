@@ -13,6 +13,8 @@ interface Post {
   location: string | null;
   likeCount: number;
   tags: string[];
+  isLiked?: boolean; // 当前用户是否已点赞
+  isFavorited?: boolean; // 当前用户是否已收藏
   createdAt?: string | Date; // 防止没有时出错
   author: {
     id?: number;
@@ -50,7 +52,24 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
+  
+  // 初始化点赞状态
+  const [likedPosts, setLikedPosts] = useState<Set<number>>(() => {
+    const set = new Set<number>();
+    initialPosts.forEach(p => {
+      if (p.isLiked) set.add(p.id);
+    });
+    return set;
+  });
+
+  // 初始化收藏状态
+  const [favoritedPosts, setFavoritedPosts] = useState<Set<number>>(() => {
+    const set = new Set<number>();
+    initialPosts.forEach(p => {
+      if (p.isFavorited) set.add(p.id);
+    });
+    return set;
+  });
 
   // 排序
   const [sortType, setSortType] = useState<'latest' | 'hottest'>('latest');
@@ -86,23 +105,111 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
     });
   }, [initialPosts, searchTerm, selectedTag, sortType]);
 
-  const handleLike = (e: React.MouseEvent, postId: number) => {
+  const handleLike = async (e: React.MouseEvent, postId: number) => {
     e.stopPropagation();
+    
+    // 乐观更新
+    const wasLiked = likedPosts.has(postId);
     const newLiked = new Set(likedPosts);
-    if (newLiked.has(postId)) newLiked.delete(postId);
+    if (wasLiked) newLiked.delete(postId);
     else newLiked.add(postId);
     setLikedPosts(newLiked);
+
+    try {
+      const res = await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
+      if (!res.ok) {
+        // 如果未登录 (401)，提示登录
+        if (res.status === 401) {
+          alert('请先登录');
+          router.push('/login');
+        }
+        throw new Error('Failed to like');
+      }
+      // 成功后刷新页面数据（可选，为了更新点赞数）
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      // 回滚
+      setLikedPosts(likedPosts);
+    }
   };
 
-  const handleForward = (e: React.MouseEvent) => {
+  const handleFavorite = async (e: React.MouseEvent, postId: number) => {
     e.stopPropagation();
-    alert('转发功能开发中：已复制链接到剪贴板！');
+    
+    // 乐观更新
+    const wasFavorited = favoritedPosts.has(postId);
+    const newFavorited = new Set(favoritedPosts);
+    if (wasFavorited) newFavorited.delete(postId);
+    else newFavorited.add(postId);
+    setFavoritedPosts(newFavorited);
+
+    try {
+      const res = await fetch(`/api/posts/${postId}/favorite`, { method: 'POST' });
+      if (!res.ok) {
+        if (res.status === 401) {
+          alert('请先登录');
+          router.push('/login');
+        }
+        throw new Error('Failed to favorite');
+      }
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      setFavoritedPosts(favoritedPosts);
+    }
   };
 
-  const handleAvatarClick = (e: React.MouseEvent, authorId: number | undefined) => {
+  const handleForward = (e: React.MouseEvent, postId: number) => {
     e.stopPropagation();
-    if (authorId) {
-      alert(`进入与用户的私聊界面 (ID: ${authorId})`);
+    const url = `${window.location.origin}/community/${postId}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('链接已复制到剪贴板！');
+      }).catch((err) => {
+        console.error('Clipboard write failed:', err);
+        fallbackCopyTextToClipboard(url);
+      });
+    } else {
+      fallbackCopyTextToClipboard(url);
+    }
+  };
+
+  const fallbackCopyTextToClipboard = (text: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // Avoid scrolling to bottom
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert('链接已复制到剪贴板！');
+      } else {
+        alert('复制失败，请手动复制链接');
+      }
+    } catch (err) {
+      console.error('Fallback: Oops, unable to copy', err);
+      alert('复制失败，请手动复制链接');
+    }
+
+    document.body.removeChild(textArea);
+  };
+
+  const handleAvatarClick = (e: React.MouseEvent, username: string | null | undefined) => {
+    e.stopPropagation();
+    if (username) {
+      router.push(`/user/${username}`);
+    } else {
+      console.warn('Author username is missing');
     }
   };
 
@@ -254,6 +361,7 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAndSortedPosts.map((post) => {
             const isLiked = likedPosts.has(post.id);
+            const isFavorited = favoritedPosts.has(post.id);
             return (
               <div
                 key={post.id}
@@ -307,7 +415,7 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                   <div className="flex items-center justify-between pt-4 border-top border-gray-50 mt-auto">
                     <div
                       className="flex items-center gap-2 hover:bg-gray-50 p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
-                      onClick={(e) => handleAvatarClick(e, post.author.id)}
+                      onClick={(e) => handleAvatarClick(e, post.author.username)}
                     >
                       {post.author.avatar ? (
                         <img
@@ -325,38 +433,48 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
 
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={handleForward}
-                        className="text-gray-400 hover:text-blue-500 transition-colors flex items-center gap-1 text-xs group/btn"
-                        title="转发"
+                        onClick={(e) => handleFavorite(e, post.id)}
+                        className={`flex items-center gap-1 text-xs group/btn transition-colors`}
+                        title="收藏"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src="/icons/share2.png"
-                          alt="转发"
-                          className="w-4 h-4 transform group-hover/btn:rotate-12 transition-transform"
-                        />
+                        <svg 
+                          className={`w-4 h-4 transition-colors ${isFavorited ? 'fill-yellow-500 text-yellow-500' : 'fill-none text-gray-400 group-hover/btn:text-yellow-500'}`} 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={(e) => handleForward(e, post.id)}
+                        className="flex items-center gap-1 text-xs group/btn transition-colors"
+                        title="分享"
+                      >
+                        <svg 
+                          className="w-4 h-4 text-gray-400 group-hover/btn:text-blue-500 transition-colors" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                        </svg>
                       </button>
 
                       <button
                         onClick={(e) => handleLike(e, post.id)}
-                        className={`flex items-center gap-1 text-xs transition-colors ${
-                          isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
-                        }`}
+                        className={`flex items-center gap-1 text-xs transition-colors group/btn`}
                       >
-                        {/* 点赞图标：未点赞 / 已点赞 两张 svg */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={
-                            isLiked
-                              ? '/icons/喜欢_like (1).svg'
-                              : '/icons/喜欢_like.svg'
-                          }
-                          alt="点赞"
-                          className={`w-4 h-4 transform transition-transform ${
-                            isLiked ? 'scale-110' : ''
-                          }`}
-                        />
-                        <span>{post.likeCount + (isLiked ? 1 : 0)}</span>
+                        <svg 
+                          className={`w-4 h-4 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'fill-none text-gray-400 group-hover/btn:text-red-500'}`} 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        <span className={`${isLiked ? 'text-red-500' : 'text-gray-400 group-hover/btn:text-red-500'}`}>
+                          {(post.likeCount || 0) - (post.isLiked ? 1 : 0) + (isLiked ? 1 : 0)}
+                        </span>
                       </button>
                     </div>
                   </div>

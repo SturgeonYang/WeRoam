@@ -31,6 +31,10 @@ body {
   min-height: 100vh;
 }
 
+button, [role="button"] {
+  cursor: pointer;
+}
+
 .chat-message {
   animation: fadeIn 0.3s ease-in-out;
 }

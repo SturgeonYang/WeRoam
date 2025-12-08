@@ -39,26 +39,29 @@ export default function CreatePostModal() {
   const MAX_IMAGES = 10;
   const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
 
-  // 从正文解析 #标签，最多 3 个
-  const parsedTags = useMemo(() => {
-    const regex = /#([^\s#]+)/g;
-    const set = new Set<string>();
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      set.add(match[1]);
-    }
-    const result = Array.from(set).slice(0, 3);
-    console.log("parsedTags =>", result);
-    return result;
-  }, [content]);
+  const [customTag, setCustomTag] = useState("");
 
   // 热门标签点击
   const toggleHotTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter((t) => t !== tag));
-    } else if (selectedTags.length < 3) {
+    } else if (selectedTags.length < 5) {
       setSelectedTags([...selectedTags, tag]);
     }
+  };
+
+  // 添加自定义标签
+  const handleAddCustomTag = () => {
+    const tag = customTag.trim();
+    if (tag && !selectedTags.includes(tag) && selectedTags.length < 5) {
+      setSelectedTags([...selectedTags, tag]);
+      setCustomTag("");
+    }
+  };
+
+  // 删除标签
+  const removeTag = (tag: string) => {
+    setSelectedTags(selectedTags.filter(t => t !== tag));
   };
 
   // 获取定位
@@ -98,7 +101,7 @@ export default function CreatePostModal() {
 };
 
   // 图片上传
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -112,50 +115,53 @@ export default function CreatePostModal() {
       return;
     }
 
-    const validFiles: string[] = [];
+    const newImages: string[] = [];
     const errors: string[] = [];
 
-    Array.from(files).forEach((file) => {
+    for (const file of Array.from(files)) {
       if (!ALLOWED_TYPES.includes(file.type)) {
         errors.push(`${file.name}：格式不支持`);
-        return;
+        continue;
       }
 
       if (file.size > MAX_FILE_SIZE) {
         errors.push(`${file.name}：文件过大（>5MB）`);
-        return;
+        continue;
       }
 
-      const objectUrl = URL.createObjectURL(file);
-      validFiles.push(objectUrl);
-    });
+      // Upload to server
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        newImages.push(data.url);
+      } catch (err) {
+        console.error(err);
+        errors.push(`${file.name}：上传失败`);
+      }
+    }
 
     if (errors.length > 0) {
       setUploadError(`以下文件无法上传：${errors.join("、")}`);
     }
 
-    if (validFiles.length > 0) {
-      setImages((prev) => [...prev, ...validFiles]);
+    if (newImages.length > 0) {
+      setImages((prev) => [...prev, ...newImages]);
     }
   };
 
   const handleRemoveImage = (index: number) => {
-    const imageToRemove = images[index];
-    if (imageToRemove.startsWith("blob:")) {
-      URL.revokeObjectURL(imageToRemove);
-    }
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  useEffect(() => {
-    return () => {
-      images.forEach((url) => {
-        if (url.startsWith("blob:")) {
-          URL.revokeObjectURL(url);
-        }
-      });
-    };
-  }, [images]);
+  // Removed useEffect for blob cleanup as we now use server URLs
 
   // 提交
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,39 +170,51 @@ export default function CreatePostModal() {
 
     setSubmitting(true);
     setSuccessMessage("");
+    setUploadError("");
 
-    // 合并正文解析 + 热门标签，去重
+    // 合并手动输入 + 热门标签，去重
     const mergedTags = Array.from(
-      new Set<string>([...parsedTags, ...selectedTags])
+      new Set<string>([...selectedTags])
     );
 
-    console.log("submit payload =>", {
-      title,
-      content,
-      images,
-      location: location.trim() || null,
-      tags: mergedTags,
-    });
+    try {
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          images,
+          location: location.trim() || null,
+          tags: mergedTags,
+        }),
+      });
 
-    await new Promise((r) => setTimeout(r, 1000));
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '发布失败');
+      }
 
-    setSuccessMessage("游记发布成功！即将返回列表页...");
-    setSubmitting(false);
+      setSuccessMessage("游记发布成功！即将返回列表页...");
+      
+      setTimeout(() => {
+        router.push("/community");
+      }, 1500);
 
-    setTimeout(() => {
-      router.push("/community");
-    }, 1500);
-
-    images.forEach((url) => {
-      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-    });
-    setTitle("");
-    setContent("");
-    setImages([]);
-    setUploadError("");
-    setLocation("");
-    setSelectedTags([]);
-    setTimeout(() => setSuccessMessage(""), 3000);
+      setTitle("");
+      setContent("");
+      setImages([]);
+      setLocation("");
+      setSelectedTags([]);
+      
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.message || "发布失败，请重试");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -206,9 +224,6 @@ export default function CreatePostModal() {
   };
 
   const confirmCancel = () => {
-    images.forEach((url) => {
-      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-    });
     setTitle("");
     setContent("");
     setImages([]);
@@ -312,39 +327,67 @@ export default function CreatePostModal() {
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-y text-gray-800 placeholder-gray-400"
             />
             <div className="flex items-center justify-between mt-2">
-              <p className="text-sm text-gray-500">
-                可以在内容里输入 <span className="font-semibold">#标签</span>，
-                例如：#冲浪 #海边
-              </p>
               <p className="text-sm text-gray-400">{content.length} 字</p>
             </div>
 
-            {/* 正文自动解析出的标签 */}
-            <div className="mt-4">
-              {parsedTags.length > 0 && (
-                <p className="text-sm text-gray-600 mb-2">正文中识别出的标签：</p>
-              )}
-              {parsedTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-block bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full px-3 py-1 mr-2 mb-2"
+            {/* 自定义标签输入 */}
+            <div className="mt-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                添加标签
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={customTag}
+                  onChange={(e) => setCustomTag(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomTag();
+                    }
+                  }}
+                  placeholder="输入标签后按回车或点击添加"
+                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomTag}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium"
                 >
-                  #{tag}
-                </span>
-              ))}
-              {parsedTags.length === 0 && (
-                <p className="text-xs text-gray-400">
-                  还没有识别到标签，试试输入：今天去了
-                  <span className="font-medium text-yellow-700">#海边</span>。
-                </p>
-              )}
+                  添加
+                </button>
+              </div>
+              
+              {/* 已选标签展示 */}
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {selectedTags.length === 0 && (
+                  <p className="text-xs text-gray-400 py-1">
+                    暂无标签，请添加或从下方选择热门标签
+                  </p>
+                )}
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full px-3 py-1"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => toggleHotTag(tag)}
+                      className="ml-2 text-yellow-600 hover:text-yellow-900 focus:outline-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* 热门标签（和正文标签放在同一块） */}
             <div className="mt-6">
               <div className="flex items-center justify-between mb-3">
                 <span className="block text-sm font-semibold text-gray-800">
-                  热门标签（可额外选择最多 3 个）
+                  热门标签
                 </span>
                 {selectedTags.length > 0 && (
                   <button
@@ -375,8 +418,11 @@ export default function CreatePostModal() {
                   );
                 })}
               </div>
+              <p className="mt-2 text-xs text-gray-400">
+                自定义标签和热门标签总共最多选择 5 个
+              </p>
               {selectedTags.length > 0 && (
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500">
                   已选择：{selectedTags.map((t) => `#${t}`).join(" ， ")}
                 </p>
               )}

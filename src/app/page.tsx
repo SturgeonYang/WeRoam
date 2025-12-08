@@ -1,6 +1,7 @@
 import Navbar from '@/components/Navbar';
 import AIChat from '@/components/AIChat';
 import TravelPosts from '@/components/TravelPosts';
+import { Suspense } from 'react';
 
 export default function Home() {
   return (
@@ -26,7 +27,9 @@ export default function Home() {
           <div className="grid lg:grid-cols-2 gap-8 items-start">
             {/* AI Chat Section */}
             <div className="lg:sticky lg:top-24">
-              <AIChat />
+              <Suspense fallback={<div>Loading Chat...</div>}>
+                <AIChat />
+              </Suspense>
             </div>
 
             {/* Travel Posts Section */}

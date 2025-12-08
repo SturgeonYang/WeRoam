@@ -1,7 +1,9 @@
 import Navbar from '@/components/Navbar';
 import { prisma } from '@/lib/prisma';
 import CommunityList from './CommunityList';
-import Link from 'next/link';
+import CreatePostButton from '@/components/CreatePostButton';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
 
 // 这是一个异步的服务端组件
 export default async function CommunityPage() {
@@ -11,6 +13,34 @@ export default async function CommunityPage() {
     include: { author: true },
     orderBy: { createdAt: 'desc' },
   });
+
+  // 获取当前用户点赞状态
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  let currentUserId: number | null = null;
+
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload) {
+      currentUserId = payload.userId;
+    }
+  }
+
+  let likedPostIds = new Set<number>();
+  let favoritedPostIds = new Set<number>();
+  if (currentUserId) {
+    const likes = await prisma.postLike.findMany({
+      where: { userId: currentUserId },
+      select: { postId: true },
+    });
+    likedPostIds = new Set(likes.map(l => l.postId));
+
+    const favorites = await prisma.favorite.findMany({
+      where: { userId: currentUserId },
+      select: { postId: true },
+    });
+    favoritedPostIds = new Set(favorites.map(f => f.postId));
+  }
 
   // 2. 数据处理：把 tags 字符串 (JSON) 转成数组
   const posts = rawPosts.map((post) => {
@@ -27,6 +57,8 @@ export default async function CommunityPage() {
     return {
       ...post,
       tags,
+      isLiked: likedPostIds.has(post.id),
+      isFavorited: favoritedPostIds.has(post.id),
     };
   });
 
@@ -46,13 +78,7 @@ export default async function CommunityPage() {
             </p>
 
             {/* 指向 /create-post */}
-            <Link
-              href="/create-post"
-              className="inline-flex items-center px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-full shadow-lg transition-all transform hover:-translate-y-1 hover:shadow-xl"
-            >
-              <span className="mr-2">✏️</span>
-              发布游记
-            </Link>
+            <CreatePostButton />
           </div>
 
           <div className="hidden md:block animate-float opacity-90">
