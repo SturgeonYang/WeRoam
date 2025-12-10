@@ -49,12 +49,13 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title } = body;
+    const { title, destination } = body;
 
     const session = await prisma.chatSession.create({
       data: {
         userId: payload.userId,
-        title: title || '新对话'
+        title: title || '新对话',
+        destination: destination || null
       }
     });
 

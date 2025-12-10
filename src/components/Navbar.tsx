@@ -23,7 +23,7 @@ export default function Navbar() {
           {/* Logo 区域 */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-16 h-16 rounded-lg overflow-hidden">
+              <div className="w-14 h-14 rounded-lg overflow-hidden">
                 <Image
                   src="/weroam.png"
                   alt="WeRoam logo"
@@ -34,7 +34,7 @@ export default function Navbar() {
                   priority
                 />
               </div>
-              <span className="font-bold text-xl text-gray-800 tracking-tight">WeRoam</span>
+              <span className="font-bold text-xl text-gray-800 tracking-tight">云旅札记 WeRoam</span>
             </Link>
           </div>
 

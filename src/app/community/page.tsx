@@ -10,7 +10,12 @@ export default async function CommunityPage() {
   // 1. 从数据库获取原始数据
   const rawPosts = await prisma.travelPost.findMany({
     where: { published: true },
-    include: { author: true },
+    include: { 
+      author: true,
+      _count: {
+        select: { comments: true }
+      }
+    },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -57,6 +62,7 @@ export default async function CommunityPage() {
     return {
       ...post,
       tags,
+      commentCount: post._count.comments,
       isLiked: likedPostIds.has(post.id),
       isFavorited: favoritedPostIds.has(post.id),
     };

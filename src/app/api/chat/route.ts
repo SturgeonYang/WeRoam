@@ -16,6 +16,41 @@ interface RequestBody {
     sessionId?: number;
 }
 
+// Helper function to generate a smart title
+async function generateSmartTitle(content: string, apiKey: string, apiEndpoint: string): Promise<string> {
+    try {
+        console.log('Generating smart title for:', content.slice(0, 50));
+        const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: "qwen-turbo",
+                messages: [
+                    { role: 'system', content: '请根据用户的输入，总结一个简短的对话标题（不超过10个字），不要包含标点符号。' },
+                    { role: 'user', content: content }
+                ],
+                stream: false
+            }),
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const title = data.choices[0]?.message?.content?.trim();
+            console.log('Generated title:', title);
+            // Remove any quotes if present
+            return title ? title.replace(/['"《》]/g, '') : '';
+        } else {
+            console.error('Title generation failed:', await response.text());
+        }
+    } catch (error) {
+        console.error('Failed to generate title:', error);
+    }
+    return '';
+}
+
 export async function POST(req: Request) {
     if (!API_KEY || !API_ENDPOINT) {
         return new NextResponse(
@@ -55,11 +90,20 @@ export async function POST(req: Request) {
             }
 
             if (!sessionId) {
+                // Generate smart title
+                let title = lastUserMessage.content.slice(0, 20);
+                if (API_KEY && API_ENDPOINT) {
+                     const smartTitle = await generateSmartTitle(lastUserMessage.content, API_KEY, API_ENDPOINT);
+                     if (smartTitle) {
+                         title = smartTitle;
+                     }
+                }
+
                 // Create new session
                 const newSession = await prisma.chatSession.create({
                     data: { 
                         userId, 
-                        title: lastUserMessage.content.slice(0, 20) || '新对话' 
+                        title: title || '新对话' 
                     }
                 });
                 sessionId = newSession.id;

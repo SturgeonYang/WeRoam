@@ -81,8 +81,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl m-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl m-4" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-900">编辑个人资料</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">

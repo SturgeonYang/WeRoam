@@ -20,6 +20,7 @@ interface Comment {
   };
   replies?: Comment[]; // 子评论
   parentId?: number | null;
+  isLiked?: boolean; // 当前用户是否点赞
 }
 
 interface PostDetailProps {
@@ -39,6 +40,8 @@ interface PostDetailProps {
       avatar?: string | null;
     };
     comments: Comment[];
+    isLiked?: boolean;
+    isFavorited?: boolean;
   };
 }
 
@@ -54,15 +57,59 @@ const formatDate = (dateStr: string | Date) => {
   }).replace(/\//g, '-');
 };
 
+// Helper to organize flat comments into tree structure
+const organizeComments = (flatComments: Comment[]): Comment[] => {
+  const commentMap = new Map<number, Comment>();
+  const roots: Comment[] = [];
+
+  // Deep copy to avoid mutating props
+  const comments = flatComments.map(c => ({ ...c, replies: [] }));
+
+  // First pass: create map
+  comments.forEach(c => {
+    commentMap.set(c.id, c);
+  });
+
+  // Second pass: link children to parents
+  comments.forEach(c => {
+    if (c.parentId) {
+      const parent = commentMap.get(c.parentId);
+      if (parent) {
+        parent.replies = parent.replies || [];
+        parent.replies.push(c);
+      } else {
+        roots.push(c);
+      }
+    } else {
+      roots.push(c);
+    }
+  });
+
+  // Sort replies by time (oldest first)
+  roots.forEach(root => {
+    if (root.replies) {
+      root.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+  });
+
+  return roots;
+};
+
 export default function PostDetail({ post }: PostDetailProps) {
   const router = useRouter();
   const { user } = useAuth();
   
   // 状态管理
-  const [comments, setComments] = useState<Comment[]>(post.comments || []);
+  // Initialize with organized comments
+  const [comments, setComments] = useState<Comment[]>(() => organizeComments(post.comments || []));
   const [newComment, setNewComment] = useState('');
   const [sortOrder, setSortOrder] = useState<'hot' | 'new'>('hot');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Post interaction states
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [isLiked, setIsLiked] = useState(post.isLiked || false);
+  const [isFavorited, setIsFavorited] = useState(post.isFavorited || false);
 
   // --- 排序逻辑 ---
   const sortedComments = [...comments].sort((a, b) => {
@@ -74,6 +121,34 @@ export default function PostDetail({ post }: PostDetailProps) {
   });
 
   // --- 交互处理函数 ---
+
+  const handleLikePost = async () => {
+    if (!user) return router.push('/login');
+    try {
+      const res = await fetch(`/api/posts/${post.id}/like`, { method: 'POST' });
+      if (res.ok) {
+        setIsLiked(!isLiked);
+        setLikeCount((prev: number) => isLiked ? prev - 1 : prev + 1);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleFavoritePost = async () => {
+    if (!user) return router.push('/login');
+    try {
+      const res = await fetch(`/api/posts/${post.id}/favorite`, { method: 'POST' });
+      if (res.ok) {
+        setIsFavorited(!isFavorited);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSharePost = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('链接已复制到剪贴板');
+    });
+  };
 
   // 1. 发布评论
   const handleAddComment = async (e: React.FormEvent) => {
@@ -163,12 +238,28 @@ export default function PostDetail({ post }: PostDetailProps) {
 
       const { liked } = await res.json();
 
-      setComments(comments.map(c => 
-        c.id === commentId ? { 
-          ...c, 
-          likeCount: liked ? c.likeCount + 1 : c.likeCount - 1 
-        } : c
-      ));
+      setComments(prevComments => prevComments.map(c => {
+        // 1. Check if it's the top-level comment
+        if (c.id === commentId) {
+          return { 
+            ...c, 
+            likeCount: liked ? c.likeCount + 1 : c.likeCount - 1,
+            isLiked: liked
+          };
+        }
+        // 2. Check if it's in replies
+        if (c.replies && c.replies.some(r => r.id === commentId)) {
+           return {
+               ...c,
+               replies: c.replies.map(r => r.id === commentId ? {
+                   ...r,
+                   likeCount: liked ? r.likeCount + 1 : r.likeCount - 1,
+                   isLiked: liked
+               } : r)
+           };
+        }
+        return c;
+      }));
     } catch (error: any) {
       console.error(error);
       alert(`操作失败: ${error.message}`);
@@ -328,6 +419,55 @@ export default function PostDetail({ post }: PostDetailProps) {
             </span>
           ))}
         </div>
+
+        {/* 底部操作按钮 */}
+        <div className="mt-8 flex items-center justify-between border-t pt-6">
+          <div className="flex items-center gap-6">
+             {/* Share */}
+             <button 
+               onClick={handleSharePost}
+               className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+               </svg>
+               <span className="text-sm">分享</span>
+             </button>
+
+             {/* Like */}
+             <button 
+               onClick={handleLikePost}
+               className={`flex items-center gap-2 transition-colors ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+             >
+               <svg className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+               </svg>
+               <span className="text-sm">{likeCount || '点赞'}</span>
+             </button>
+
+             {/* Comment */}
+             <button 
+               onClick={() => document.querySelector('textarea')?.focus()}
+               className="flex items-center gap-2 text-gray-500 hover:text-blue-500 transition-colors"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+               </svg>
+               <span className="text-sm">{comments.length || '评论'}</span>
+             </button>
+
+             {/* Favorite */}
+             <button 
+               onClick={handleFavoritePost}
+               className={`flex items-center gap-2 transition-colors ${isFavorited ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'}`}
+             >
+               <svg className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+               </svg>
+               <span className="text-sm">{isFavorited ? '已收藏' : '收藏'}</span>
+             </button>
+          </div>
+        </div>
       </article>
 
       {/* 评论区 */}
@@ -448,11 +588,11 @@ function CommentItem({ comment, onDelete, onLike, onReply, currentUser }: {
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <button 
               onClick={() => onLike(comment.id)}
-              className="hover:text-red-500 flex items-center gap-1 transition-colors group/btn"
+              className={`flex items-center gap-1 transition-colors group/btn ${comment.isLiked ? 'text-red-500' : 'hover:text-red-500'}`}
             >
               <svg 
-                className="w-4 h-4 text-gray-400 group-hover/btn:text-red-500 transition-colors" 
-                fill="none" 
+                className={`w-4 h-4 transition-colors ${comment.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-400 group-hover/btn:text-red-500'}`}
+                fill={comment.isLiked ? "currentColor" : "none"}
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
               >
