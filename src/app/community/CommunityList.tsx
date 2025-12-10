@@ -3,6 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 // 定义接口
 interface Post {
@@ -12,6 +13,7 @@ interface Post {
   coverImage: string | null;
   location: string | null;
   likeCount: number;
+  commentCount?: number;
   tags: string[];
   isLiked?: boolean; // 当前用户是否已点赞
   isFavorited?: boolean; // 当前用户是否已收藏
@@ -50,6 +52,7 @@ const getTagColor = (tag: string) => {
 
 export default function CommunityList({ initialPosts }: CommunityListProps) {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   
@@ -108,6 +111,13 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
   const handleLike = async (e: React.MouseEvent, postId: number) => {
     e.stopPropagation();
     
+    if (loading) return;
+    if (!user) {
+      alert('请先登录');
+      router.push('/login');
+      return;
+    }
+    
     // 乐观更新
     const wasLiked = likedPosts.has(postId);
     const newLiked = new Set(likedPosts);
@@ -122,6 +132,8 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         if (res.status === 401) {
           alert('请先登录');
           router.push('/login');
+          setLikedPosts(likedPosts); // 回滚
+          return;
         }
         throw new Error('Failed to like');
       }
@@ -137,6 +149,13 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
   const handleFavorite = async (e: React.MouseEvent, postId: number) => {
     e.stopPropagation();
     
+    if (loading) return;
+    if (!user) {
+      alert('请先登录');
+      router.push('/login');
+      return;
+    }
+
     // 乐观更新
     const wasFavorited = favoritedPosts.has(postId);
     const newFavorited = new Set(favoritedPosts);
@@ -150,6 +169,8 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
         if (res.status === 401) {
           alert('请先登录');
           router.push('/login');
+          setFavoritedPosts(favoritedPosts); // 回滚
+          return;
         }
         throw new Error('Failed to favorite');
       }
@@ -432,20 +453,7 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <button
-                        onClick={(e) => handleFavorite(e, post.id)}
-                        className={`flex items-center gap-1 text-xs group/btn transition-colors`}
-                        title="收藏"
-                      >
-                        <svg 
-                          className={`w-4 h-4 transition-colors ${isFavorited ? 'fill-yellow-500 text-yellow-500' : 'fill-none text-gray-400 group-hover/btn:text-yellow-500'}`} 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                        </svg>
-                      </button>
-
+                      {/* 1. Share */}
                       <button
                         onClick={(e) => handleForward(e, post.id)}
                         className="flex items-center gap-1 text-xs group/btn transition-colors"
@@ -461,6 +469,7 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                         </svg>
                       </button>
 
+                      {/* 2. Like */}
                       <button
                         onClick={(e) => handleLike(e, post.id)}
                         className={`flex items-center gap-1 text-xs transition-colors group/btn`}
@@ -475,6 +484,29 @@ export default function CommunityList({ initialPosts }: CommunityListProps) {
                         <span className={`${isLiked ? 'text-red-500' : 'text-gray-400 group-hover/btn:text-red-500'}`}>
                           {(post.likeCount || 0) - (post.isLiked ? 1 : 0) + (isLiked ? 1 : 0)}
                         </span>
+                      </button>
+
+                      {/* 3. Comment */}
+                      <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors group/btn">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <span>{post.commentCount || 0}</span>
+                      </button>
+
+                      {/* 4. Favorite */}
+                      <button
+                        onClick={(e) => handleFavorite(e, post.id)}
+                        className={`flex items-center gap-1 text-xs group/btn transition-colors`}
+                        title="收藏"
+                      >
+                        <svg 
+                          className={`w-4 h-4 transition-colors ${isFavorited ? 'fill-yellow-500 text-yellow-500' : 'fill-none text-gray-400 group-hover/btn:text-yellow-500'}`} 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
                       </button>
                     </div>
                   </div>

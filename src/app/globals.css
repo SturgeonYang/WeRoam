@@ -50,6 +50,18 @@ button, [role="button"] {
   }
 }
 
+/* Map Tooltip Customization */
+.leaflet-tooltip.custom-map-tooltip {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.leaflet-tooltip-bottom:before {
+  display: none; /* Hide the little arrow */
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-in-out;
 }

@@ -22,6 +22,7 @@ model User {
   commentLikes CommentLike[]
   comments     Comment[]
   favorites    Favorite[]
+  savedLocations SavedLocation[]
   postLikes    PostLike[]
   posts        TravelPost[]
   followedBy   Follows[]     @relation("followedBy")
@@ -79,6 +80,21 @@ model Favorite {
   @@map("favorites")
 }
 
+model SavedLocation {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  name        String
+  description String?
+  type        String?  // spot, food, hotel
+  lat         Float?
+  lng         Float?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_locations")
+}
+
 model PostLike {
   id        Int        @id @default(autoincrement())
   userId    Int
@@ -95,6 +111,7 @@ model ChatSession {
   id        Int           @id @default(autoincrement())
   userId    Int
   title     String        @default("新对话")
+  destination String?     // 新增：记录当前会话的目的地
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  ChatMessage[]

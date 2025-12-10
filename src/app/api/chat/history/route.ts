@@ -17,16 +17,38 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Get the most recent session
-    const session = await prisma.chatSession.findFirst({
-      where: { userId: payload.userId },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        messages: {
-          orderBy: { createdAt: 'asc' }
-        }
+    const { searchParams } = new URL(req.url);
+    const sessionIdParam = searchParams.get('sessionId');
+
+    let session;
+
+    if (sessionIdParam) {
+      const sessionId = parseInt(sessionIdParam);
+      if (!isNaN(sessionId)) {
+        session = await prisma.chatSession.findUnique({
+          where: { 
+            id: sessionId,
+            userId: payload.userId // Ensure user owns the session
+          },
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' }
+            }
+          }
+        });
       }
-    });
+    } else {
+      // Get the most recent session
+      session = await prisma.chatSession.findFirst({
+        where: { userId: payload.userId },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' }
+          }
+        }
+      });
+    }
 
     if (!session) {
       return NextResponse.json({ messages: [], sessionId: null });
