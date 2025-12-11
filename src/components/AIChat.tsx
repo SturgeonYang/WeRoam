@@ -169,6 +169,8 @@ export default function AIChat({ onRouteUpdate, sessionId }: AIChatProps) {
             // New Chat Mode: Reset to default state
             setMessages([{ id: 1, type: 'ai', content: '您好！我是您的 WeRoam 助手。告诉我您想去哪里？', timestamp: new Date() }]);
             setCurrentSessionId(null);
+            // Reset parent destination to default
+            onRouteUpdate('目的地待定', []);
             return;
         }
 
@@ -183,9 +185,12 @@ export default function AIChat({ onRouteUpdate, sessionId }: AIChatProps) {
                     // Restore session destination if available
                     if (data.destination) {
                         setCurrentDestination(data.destination);
+                        // Update parent component to show destination in header
+                        onRouteUpdate(data.destination, []);
                     } else {
-                        // 如果会话没有记录目的地，重置为默认值，避免显示上一个会话的目的地
+                        // 如果会话没有记录目的地，重置为默认值
                         setCurrentDestination('上海');
+                        onRouteUpdate('目的地待定', []);
                     }
 
                     if (data.messages && data.messages.length > 0) {
@@ -240,6 +245,45 @@ export default function AIChat({ onRouteUpdate, sessionId }: AIChatProps) {
                         });
                         setMessages(formattedMessages);
                         setCurrentSessionId(data.sessionId);
+
+                        // ✅ 自动恢复最后一次行程的地图点位
+                        const lastItineraryMsg = [...formattedMessages].reverse().find((m: any) => m.fullItinerary || m.routeData);
+                        if (lastItineraryMsg) {
+                            let points: any[] = [];
+                            
+                            if (lastItineraryMsg.fullItinerary) {
+                                setCurrentRouteData(lastItineraryMsg.fullItinerary);
+                                lastItineraryMsg.fullItinerary.itinerary.forEach((day: any) => {
+                                    day.nodes.forEach((node: any) => {
+                                        if (node.coordinates && node.coordinates.lat && node.coordinates.lng) {
+                                            points.push({
+                                                lat: node.coordinates.lat,
+                                                lng: node.coordinates.lng,
+                                                label: node.location
+                                            });
+                                        }
+                                    });
+                                });
+                            } else if (lastItineraryMsg.routeData) {
+                                // 兼容旧数据格式
+                                points = lastItineraryMsg.routeData
+                                    .filter((n: any) => n.coordinates && n.coordinates.lat && n.coordinates.lng)
+                                    .map((n: any) => ({
+                                        lat: n.coordinates.lat,
+                                        lng: n.coordinates.lng,
+                                        label: n.location
+                                    }));
+                            }
+
+                            if (points.length > 0) {
+                                setCurrentMapPoints(points);
+                                // 如果当前有目的地，同步更新父组件地图
+                                if (data.destination) {
+                                    onRouteUpdate(data.destination, points);
+                                }
+                            }
+                        }
+
                     } else {
                         // If specific session requested but empty/not found
                         setMessages([{ id: 1, type: 'ai', content: '未找到该会话记录，已为您开启新对话。', timestamp: new Date() }]);
@@ -303,8 +347,24 @@ export default function AIChat({ onRouteUpdate, sessionId }: AIChatProps) {
             const firstDayRoute = itineraryData.itinerary[0].nodes;
             
             setCurrentRouteData(itineraryData); // 存储完整的 N 天路线
+
+            // --- 优化：立即显示文本结果，无需等待地理编码 ---
+            const travelModeStr = Array.isArray(formData.travelMode) ? formData.travelMode.join('、') : formData.travelMode;
+            const aiResponseText = `### ✅ WeRoam 智能定制：**${destination} ${daysGenerated}天** 路线\n\n` +
+                `AI 已根据您的 **${formData.style.join('、')}** 偏好（**${formData.pace}** 节奏）生成了 **${daysGenerated}天** 的详细行程。\n` +
+                `建议交通方式为 **${travelModeStr}**。\n\n` +
+                `请点击下方卡片查看 **第一天** 路线，或打开【行程详情】查看完整 ${daysGenerated} 天路线。`;
+
+            // 立即更新 UI (用户不再需要等待地理编码)
+            setMessages(prev => prev.map(m => m.id === msgId ? { 
+                ...m, 
+                content: aiResponseText, 
+                isRoutePlan: true, 
+                routeData: firstDayRoute, // 仅用于 RouteTimeline 卡片展示
+                fullItinerary: itineraryData // 存储完整数据 (此时可能缺少部分坐标)
+            } : m));
             
-            // 3. 更新地图点位 (使用 AI 返回的真实坐标，并尝试进行客户端地理编码修正)
+            // 3. 后台更新地图点位 (使用 AI 返回的真实坐标，并尝试进行客户端地理编码修正)
             const allPoints: any[] = [];
             
             // 辅助函数：延迟执行
@@ -455,20 +515,10 @@ export default function AIChat({ onRouteUpdate, sessionId }: AIChatProps) {
                 } catch (e) { console.error(e); }
             }
 
-            // 4. 构建 AI 回复文本
-            const travelModeStr = Array.isArray(formData.travelMode) ? formData.travelMode.join('、') : formData.travelMode;
-            const aiResponseText = `### ✅ WeRoam 智能定制：**${destination} ${daysGenerated}天** 路线\n\n` +
-                `AI 已根据您的 **${formData.style.join('、')}** 偏好（**${formData.pace}** 节奏）生成了 **${daysGenerated}天** 的详细行程。\n` +
-                `建议交通方式为 **${travelModeStr}**。\n\n` +
-                `请点击下方卡片查看 **第一天** 路线，或打开【行程详情】查看完整 ${daysGenerated} 天路线。`;
-
-            // 5. 更新消息 (非流式，直接替换)
+            // 再次更新消息，确保最新的坐标数据被保存到状态中
             setMessages(prev => prev.map(m => m.id === msgId ? { 
                 ...m, 
-                content: aiResponseText, 
-                isRoutePlan: true, 
-                routeData: firstDayRoute, // 仅用于 RouteTimeline 卡片展示
-                fullItinerary: itineraryData // 存储完整数据
+                fullItinerary: itineraryData // 更新为包含完整坐标的数据
             } : m));
 
             // 保存 AI 消息到后端（如果有会话）
