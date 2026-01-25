@@ -309,10 +309,10 @@ const ItineraryModal: React.FC<ItineraryModalProps> = ({ data, destination, onCl
                                                     if (!isNaN(lat) && !isNaN(lng)) {
                                                         setFocusedPoint({ lat, lng });
                                                     } else {
-                                                        console.warn('Invalid coordinates for node:', node.name, node.coordinates);
+                                                        console.warn('Invalid coordinates for node:', node.location, node.coordinates);
                                                     }
                                                 } else {
-                                                    console.warn('No coordinates for node:', node.name);
+                                                    console.warn('No coordinates for node:', node.location);
                                                 }
                                             }}
                                         />
