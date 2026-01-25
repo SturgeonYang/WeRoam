@@ -30,7 +30,7 @@ const ItineraryModal: React.FC<ItineraryModalProps> = ({ data, destination, onCl
                 const res = await fetch('/api/user/saved-locations');
                 if (res.ok) {
                     const data = await res.json();
-                    const favSet = new Set(data.map((item: any) => item.name));
+                    const favSet = new Set<string>(data.map((item: any) => item.name as string));
                     setFavorites(favSet);
                 }
             } catch (error) {

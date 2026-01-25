@@ -29,7 +29,7 @@
 3. 点击 **Add Database**。
    - **DBName**: `weroam_db`
    - **User**: `weroam_user`
-   - **Password**: 设置一个强密码（面板会自动生成一个，复制下来）。
+   - **Password**: 设置一个强密码（面板会自动生成一个，复制下来）。7bH4SjnMBPFTbxjj
 4. 点击 Submit。
 
 ## 4. 获取代码与配置环境
@@ -51,14 +51,6 @@
    # 注意：aaPanel 的 PostgreSQL 默认端口通常也是 5432
    DATABASE_URL="postgresql://weroam_user:YOUR_PASSWORD@127.0.0.1:5432/weroam_db"
    
-   NODE_ENV=production
-   
-   # JWT加密密钥 (必须设置，否则会使用不安全的默认值)
-   JWT_SECRET=在这里输入一串随机生成的复杂字符串
-   
-   # AI 服务配置
-   QWEN_API_KEY=sk-62e8db0ef2ab4b1a9b175675ad25f02e
-   QWEN_API_ENDPOINT=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
    ```
 4. 保存文件。
 
