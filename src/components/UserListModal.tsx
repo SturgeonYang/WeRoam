@@ -26,7 +26,7 @@ export default function UserListModal({ isOpen, onClose, title, users, loading }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl m-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">

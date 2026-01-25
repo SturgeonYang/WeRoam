@@ -12,7 +12,9 @@ interface ChatSession {
     title: string;
     createdAt: string;
     updatedAt: string;
-    _aggr_count_messages: number;
+    _count?: {
+        messages: number;
+    };
 }
 
 export default function MyTripsPage() {

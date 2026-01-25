@@ -54,7 +54,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ messages: [], sessionId: null });
     }
 
-    return NextResponse.json({ messages: session.messages, sessionId: session.id });
+    return NextResponse.json({ 
+      messages: session.messages, 
+      sessionId: session.id,
+      destination: session.destination // Return destination
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
